@@ -1,0 +1,50 @@
+Title: Pizza Panic - Game Design Overview
+
+High Concept:
+You are an overworked pizza shop employee in Monsterville, cooking and delivering pizzas to monster-infested neighborhoods.
+
+Core Gameplay Loop:
+1. Receive an order
+2. Prepare and cook the pizza
+3. Deliver the pizza through Monsterville while avoiding or fending off monsters
+
+Core Mechanics:
+- Real-time pizza cooking minigame (topping placement + bake timing)
+- Vehicle or on-foot delivery through an open map
+- Monsters are attracted to the player and can attack them, the vehicle, or the pizza
+- Pizza quality degrades if it is damaged during delivery
+- Deliveries are timed—late deliveries result in reduced payout
+
+Victory Condition:
+Deliver pizza to every neighborhood in Monsterville and win their hearts. Each zone may require a unique pizza to pacify its local monsters.
+
+Failure:
+The player can die, triggering a setback such as loss of money or reputation. This is not a hard game over—the player can continue after penalties.
+
+Music:
+- Overall Feel: Lofi, nostalgia-based.
+- Influences: Vaporwave, old Weather Channel music, 80s synth.
+- Specific Track Vibes: Phil Collins "In the Air Tonight", late-night drive atmosphere.
+
+Future Expansion Concepts:
+- Neighborhood progression and map unlocking
+- More complex cooking mechanics and custom pizza recipes
+- Monster variety, behaviors, and factions
+- Vehicle and shop upgrades
+- Defensive systems (fortify the pizza joint)
+- Randomized order events and modifiers
+
+Ideas:
+- Pizza as a weapon:
+    - Melee attack (whacking)
+    - Ranged boomerang throw (possibly magical)
+    - Pizza shield (defensive)
+- Topping effects:
+    - Different toppings grant the pizza special properties when used as a weapon/shield (e.g., peppers burn monsters, mushrooms increase durability/defense).
+        - Onions: Stun/disorient nearby monsters (like tear gas).
+        - Extra Cheese: Increases melee knockback/shield durability, but slows throws.
+        - Garlic: Effective against specific monsters (e.g., vampires).
+- Topping Combinations: Combining specific toppings could unlock unique effects (e.g., Pepperoni + Peppers = Flaming Grease attack).
+- Weapon/Tool Degradation: Using the pizza offensively/defensively degrades its quality faster, creating a risk/reward trade-off.
+- Pizza Box: Placing the pizza in a box could offer additional protection (reducing degradation/damage) but might prevent using its special properties/attacks.
+- Horror Twist during Travel: Incorporate horror elements during delivery segments, such as encountering large, imposing monsters partially obscured by fog or darkness, creating a sense of dread and vulnerability. (Needs more thought).

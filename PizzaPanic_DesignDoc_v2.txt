@@ -1,0 +1,114 @@
+Title: Pizza Panic
+Version: 2 (Prototype Design)
+Date: 2026-04-08
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONCEPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You are the sole proprietor of a pizza shop in a monster-infested neighborhood.
+You cook. You deliver. You survive.
+
+The game is built on two emotional states in constant alternation:
+
+  SAFE (kitchen) → DREAD (delivery) → RELIEF (return) → repeat
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WORLD / MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+One continuous open map. No loading screens. No scene cuts.
+
+The shop sits on the map as your anchor. Inside: warm light, cozy music, safety.
+Outside: dark streets, ambient dread, monsters lurking.
+
+The tonal shift is spatial — you feel it the moment you step out the front door.
+Addresses (delivery targets) are scattered across the neighborhood. The further
+the address, the more dangerous the journey.
+
+When you return to the shop after a delivery, the warmth hits you again.
+That contrast is intentional and central to the experience.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORE LOOP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Receive an order (order slip appears in the shop)
+2. Cook the pizza (prep toppings, time the bake)
+3. Step outside and deliver it (navigate to the address)
+4. Return to the shop (collect payment, next order)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COOKING PHASE (Inside the Shop)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tone: Cozy, calm, lighthearted. No monsters can enter.
+
+Mechanics (prototype):
+- Place toppings on dough to fill the order
+- Put pizza in oven, time the bake (too short = undercooked, too long = burned)
+- Perfect cook = higher tip, better pizza quality
+
+Pizza quality matters during delivery — a damaged or poor-quality pizza
+means less money and unhappy customers.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DELIVERY PHASE (Outside)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tone: Dark, tense, dreadful. Silly but threatening (think Lethal Company / REPO).
+      You are mostly vulnerable. The goal is to survive, not to fight.
+
+Mechanics (prototype):
+- Navigate from the shop to the delivery address on foot
+- Monsters are attracted to you (and your pizza)
+- Monsters can damage the pizza if they reach you (reduces payout)
+- Reach the lit doorstep, deliver, return to shop
+- No timer — the pressure comes from the monsters, not a clock
+
+Monsters (prototype):
+- Mindless drones, attracted to pizza smell
+- They shamble toward you; too many = you're overwhelmed
+- You can be knocked back or stunned; "death" costs you money/reputation, no hard game over
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Earn money from deliveries. Spend it on upgrades.
+
+Transport ladder:
+  On foot → Skateboard → Bicycle → Delivery Van
+
+Each step changes the delivery experience: speed, range, ability to deal
+with threats incidentally (e.g., the van can run over grunt mobs).
+
+Basic defensive items (later):
+- Simple knockback weapons (rolling pin, pizza cutter) — push mobs away, not kill
+- Purpose is to create space and escape, not to fight
+
+Combat is never the point. Upgrades make you less helpless, not powerful.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ATMOSPHERE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Music contrast is critical:
+- Inside the shop: lofi, warm, nostalgic. Vaporwave / old Weather Channel vibes.
+- Outside: ambient dread. Late-night tension. Think Phil Collins "In the Air Tonight"
+  — that slow-burn feeling before something happens.
+
+Visual contrast:
+- Shop interior: warm oranges and yellows, visible and inviting
+- Outside: dark, cool-toned, fog, distant lights
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUTURE / OUT OF PROTOTYPE SCOPE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Co-op multiplayer (asymmetric: cook vs. deliver, rescue missions)
+- Neighborhood progression / map unlocking
+- Topping variety with customer preferences
+- Monster variety and factions
+- Shop upgrades and fortification
+- 3D version (this prototype is 2D)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOTYPE GOAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Make the emotional loop feel right:
+  Cozy kitchen → dread the moment you step outside → relief when you get back.
+
+If that contrast lands, the game works. Everything else is built on top of it.
