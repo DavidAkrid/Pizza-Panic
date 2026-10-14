@@ -197,7 +197,12 @@ func _refresh_hud() -> void:
 		lines.append("DELIVER TO: " + order.house.address)
 	else:
 		lines.append("No order. Head back to the shop.")
-	lines.append("HANDS: " + (player.held.describe() if player.held else "empty"))
+	var hands := "empty"
+	if player.held:
+		hands = player.held.describe()
+	elif player.held_item:
+		hands = player.held_item.item_name
+	lines.append("HANDS: " + hands)
 	hud.order_label.text = "\n".join(lines)
 	hud.money_label.text = "$%d" % money
 	hud.set_stamina(player.stamina / Player.STAMINA_MAX)
@@ -217,7 +222,9 @@ func _refresh_hud() -> void:
 		hud.compass.marker_bearing = NAN
 
 
-# --- Debug screenshots: run with `-- --shots=<dir>` ---------------------------
+# --- Dev test harness: run with `-- --shots=<dir>` -----------------------------
+# Scratch space for checking new work: screenshots and scripted checks. Once a feature is
+# verified, delete its checks from here so runs stay fast.
 
 func _arg(prefix: String) -> String:
 	for a in OS.get_cmdline_user_args():
@@ -226,43 +233,28 @@ func _arg(prefix: String) -> String:
 	return ""
 
 
-func _run_shots(dir: String) -> void:
+func _run_shots(_dir: String) -> void:
 	freeze_monsters = true
-	var demo := Pizza.new()
-	demo.toppings.assign(["Pepperoni", "Olive"])
-	demo.stage = Pizza.Stage.BAKED
-	demo.bake_label = "perfect"
-	player.set_held(demo)
-	var poses := [
-		["01_kitchen", Vector3(0, 0, 4), 180.0, -10.0],
-		["02_front_door", Vector3(1, 0, 6), 0.0, 0.0],
-		["03_shop_exterior", Vector3(-4, 0, -14), 200.0, 8.0],
-		["04_main_street", Vector3(0, 0, -5), 90.0, 0.0],
-		["05_elm_ave", Vector3(29, 0, -15), 0.0, 0.0],
-		["06_house_12_main", Vector3(-20, 0, -9), 0.0, 5.0],
-		["07_park", Vector3(-20, 0, -38), 0.0, 0.0],
-		["08_shambler", Vector3(-30, 0, -40), 0.0, -5.0],
-	]
 	await get_tree().create_timer(1.5).timeout
-	for pose in poses:
-		player.global_position = pose[1]
-		player.velocity = Vector3.ZERO
-		player.rotation.y = deg_to_rad(pose[2])
-		player.head.rotation.x = deg_to_rad(pose[3])
-		await get_tree().create_timer(1.6).timeout
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(dir.path_join(pose[0] + ".png"))
-	# Swing the pizza at the nearest monster and catch it mid-knockback.
-	var target: Shambler = get_tree().get_nodes_in_group("monster")[0]
-	player.global_position = target.global_position + Vector3(0, 0, 1.6)
-	player.rotation.y = 0.0
-	player.head.rotation.x = deg_to_rad(-5.0)
-	await get_tree().create_timer(0.5).timeout
-	var before := target.global_position
-	player._attack()
-	await get_tree().create_timer(0.08).timeout
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(dir.path_join("09_swing.png"))
-	await get_tree().create_timer(1.0).timeout
-	print("SHOT swing moved monster %.2fm, pizza condition %d" % [before.distance_to(target.global_position), player.held.condition])
+	# (no pending checks)
 	get_tree().quit()
+
+
+## Saves the current frame as <dir>/<name>.png.
+func _capture(dir: String, name: String) -> void:
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir.path_join(name + ".png"))
+
+
+## Puts the player at `pos`, facing yaw/pitch in degrees, and lets the scene settle.
+func _pose(pos: Vector3, yaw: float, pitch := 0.0) -> void:
+	player.global_position = pos
+	player.velocity = Vector3.ZERO
+	player.rotation.y = deg_to_rad(yaw)
+	player.head.rotation.x = deg_to_rad(pitch)
+	await get_tree().create_timer(1.0).timeout
+
+
+## Stands the player `dist` meters south of a monster, facing it.
+func _face(m: Node3D, dist: float) -> void:
+	await _pose(m.global_position + Vector3(0, 0, dist), 0.0, -5.0)

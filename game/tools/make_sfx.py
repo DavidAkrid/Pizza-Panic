@@ -104,6 +104,20 @@ def thud():
     return out
 
 
+def clink():
+    """Aluminum can hitting something: bright inharmonic ping, very short."""
+    n = int(RATE * 0.25)
+    partials = [(1850, 1.0, 22), (2730, 0.6, 30), (4100, 0.4, 40), (5900, 0.25, 55)]
+    rng = random.Random(9)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        s = sum(a * math.sin(2 * math.pi * f * t) * math.exp(-t * d) for f, a, d in partials)
+        s += rng.uniform(-1, 1) * math.exp(-t * 200) * 0.8  # tick of the impact
+        out.append(s * min(t / 0.0005, 1.0))
+    return out
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for k in range(4):
@@ -112,3 +126,4 @@ if __name__ == "__main__":
     write("ding.wav", ding())
     write("whoosh.wav", whoosh())
     write("thud.wav", thud())
+    write("clink.wav", clink())

@@ -45,23 +45,27 @@ func _ready() -> void:
 	_build_park()
 	_build_east_side()
 	_build_props()
+	_build_signs()
 	_build_bounds()
 
 
 # --- Layout ---------------------------------------------------------------
 
 func _build_ground() -> void:
+	# Road/sidewalk/line layers sit a few cm above the grass and have their own collision,
+	# so dropped items rest on the surface you see instead of sinking into it.
+	# (_surface gives them a deep collider: thin ones let resting objects sink in.)
 	_box(Vector3(0, -0.5, -40), Vector3(160, 1, 140), GRASS)
-	_box(Vector3(0, 0.01, -6.5), Vector3(156, 0.02, 7), ASPHALT, false) # Main St
-	_box(Vector3(29.5, 0.01, -51.5), Vector3(7, 0.02, 83), ASPHALT, false) # Elm Ave
-	_box(Vector3(-3.5, 0.01, -89.5), Vector3(73, 0.02, 7), ASPHALT, false) # Hollow Rd
-	_box(Vector3(0, 0.02, -1.5), Vector3(156, 0.02, 3), SIDEWALK, false)
-	_box(Vector3(-26, 0.02, -11.5), Vector3(104, 0.02, 3), SIDEWALK, false)
-	_box(Vector3(55.5, 0.02, -11.5), Vector3(45, 0.02, 3), SIDEWALK, false)
+	_surface(Vector3(0, 0.01, -6.5), Vector3(156, 0.02, 7), ASPHALT) # Main St
+	_surface(Vector3(29.5, 0.01, -51.5), Vector3(7, 0.02, 83), ASPHALT) # Elm Ave
+	_surface(Vector3(-3.5, 0.01, -89.5), Vector3(73, 0.02, 7), ASPHALT) # Hollow Rd
+	_surface(Vector3(0, 0.02, -1.5), Vector3(156, 0.02, 3), SIDEWALK)
+	_surface(Vector3(-26, 0.02, -11.5), Vector3(104, 0.02, 3), SIDEWALK)
+	_surface(Vector3(55.5, 0.02, -11.5), Vector3(45, 0.02, 3), SIDEWALK)
 	for x in range(-74, 76, 8):
-		_box(Vector3(x, 0.025, -6.5), Vector3(3, 0.01, 0.2), LINE, false)
+		_surface(Vector3(x, 0.025, -6.5), Vector3(3, 0.01, 0.2), LINE)
 	for z in range(-16, -86, -8):
-		_box(Vector3(29.5, 0.025, z), Vector3(0.2, 0.01, 3), LINE, false)
+		_surface(Vector3(29.5, 0.025, z), Vector3(0.2, 0.01, 3), LINE)
 
 
 func _build_shop_row() -> void:
@@ -145,6 +149,55 @@ func _build_props() -> void:
 	_car(Vector3(-10, 0, -91.5), true)
 
 
+func _build_signs() -> void:
+	# Corner signs: first name runs along X (east-west streets), second along Z (north-south).
+	_street_sign(Vector3(25, 0, -12.8), ["MAIN ST", "ELM AVE"])
+	_street_sign(Vector3(34.5, 0, -12.8), ["MAIN ST", "ELM AVE"])
+	_street_sign(Vector3(25, 0, -85), ["HOLLOW RD", "ELM AVE"])
+	_street_sign(Vector3(7, 0, -2.8), ["MAIN ST"])
+	_street_sign(Vector3(-50, 0, -2.8), ["MAIN ST"])
+	_street_sign(Vector3(-36, 0, -93.5), ["HOLLOW RD"])
+	_park_sign(Vector3(-8, 0, -14.5), "WEXLEY PARK")
+
+
+func _street_sign(pos: Vector3, names: Array) -> void:
+	# Blades sit on top of the pole (not threaded onto it) so the pole never covers the text.
+	var top := 2.85
+	var pole_height := top - 0.15 - (names.size() - 1) * 0.3
+	_box(pos + Vector3(0, pole_height / 2.0, 0), Vector3(0.08, pole_height, 0.08), METAL)
+	for i in names.size():
+		var blade := Node3D.new()
+		blade.position = pos + Vector3(0, top - i * 0.3, 0)
+		blade.rotation.y = 0.0 if i == 0 else PI / 2.0
+		add_child(blade)
+		# Faint glow so they read at night like reflective signs.
+		_box(Vector3.ZERO, Vector3(1.5, 0.28, 0.04), Color(0.05, 0.32, 0.14), false, blade, 0.25)
+		for side in [1.0, -1.0]:
+			blade.add_child(_sign_label(names[i], Vector3(0, 0, 0.025 * side), 0.0 if side > 0 else PI, 0.005))
+
+
+func _park_sign(pos: Vector3, text: String) -> void:
+	# Board is mounted on the street-facing side of its posts, so the posts sit behind it.
+	for x in [-1.0, 1.0]:
+		_box(pos + Vector3(x, 0.7, 0), Vector3(0.12, 1.4, 0.12), WOOD)
+	var board_z := 0.12
+	_box(pos + Vector3(0, 1.2, board_z), Vector3(2.4, 0.7, 0.1), Color(0.35, 0.22, 0.12))
+	add_child(_sign_label(text, pos + Vector3(0, 1.2, board_z + 0.055), 0.0, 0.007))
+
+
+func _sign_label(text: String, pos: Vector3, yaw: float, pixel_size: float) -> Label3D:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = 48
+	l.pixel_size = pixel_size
+	l.outline_size = 0
+	l.modulate = Color(0.92, 0.95, 0.9)
+	l.double_sided = false
+	l.position = pos
+	l.rotation.y = yaw
+	return l
+
+
 func _build_bounds() -> void:
 	_wall(Vector3(-79, 5, -40), Vector3(1, 10, 140))
 	_wall(Vector3(79, 5, -40), Vector3(1, 10, 140))
@@ -171,7 +224,7 @@ func _house(root_pos: Vector3, facing: Vector3, address: String, deliverable: bo
 	roof.mesh = prism
 	roof.position = Vector3(0, 5.1, 0)
 	h.add_child(roof)
-	_box(Vector3(0, 0.04, 4.5), Vector3(3, 0.08, 2), WOOD, false, h) # porch
+	_surface(Vector3(0, 0.04, 4.5), Vector3(3, 0.08, 2), WOOD, h) # porch
 	for wx: float in [-2.4, 2.4]:
 		_window(Vector3(wx, 2.0, 3.52), Vector3(1.4, 1.1, 0.06), 0.25, h)
 
@@ -284,6 +337,29 @@ func _box(pos: Vector3, size: Vector3, color: Color, collide := true, parent: No
 	var shape := BoxShape3D.new()
 	shape.size = size
 	_place(mesh, shape if collide else null, pos, parent)
+
+
+## A thin walkable layer (road, sidewalk, porch). The mesh is as thin as it looks, but the
+## collider extends well below it, so objects can't sink into or slip through it.
+func _surface(pos: Vector3, size: Vector3, color: Color, parent: Node3D = null) -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh.material = _mat(color)
+	var depth := 0.5
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(size.x, size.y + depth, size.z)
+	if parent == null:
+		parent = self
+	var body := StaticBody3D.new()
+	body.position = pos
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	col.position.y = -depth / 2.0 # keep the top flush with the mesh
+	body.add_child(col)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	body.add_child(mi)
+	parent.add_child(body)
 
 
 func _cylinder(pos: Vector3, radius: float, height: float, color: Color, collide: bool) -> void:

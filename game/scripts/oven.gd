@@ -43,7 +43,7 @@ func get_prompt(p: Player) -> String:
 		if p.held and p.held.stage == Pizza.Stage.RAW:
 			return "[E] Bake pizza"
 		return "Oven"
-	return "[E] Take pizza out" if p.held == null else "Oven (hands full)"
+	return "[E] Take pizza out" if p.hands_free() else "Oven (hands full)"
 
 
 func interact(p: Player) -> void:
@@ -53,7 +53,7 @@ func interact(p: Player) -> void:
 			_t = 0.0
 			_dinged = false
 			p.set_held(null)
-	elif p.held == null:
+	elif p.hands_free():
 		_pizza.stage = Pizza.Stage.BAKED
 		_pizza.bake_quality = _quality()
 		_pizza.bake_label = _label()

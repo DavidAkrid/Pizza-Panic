@@ -12,7 +12,7 @@ const PICKUP := preload("res://audio/pickup.wav")
 func get_prompt(p: Player) -> String:
 	match kind:
 		Kind.DOUGH:
-			return "[E] Grab dough" if p.held == null else "Dough (hands full)"
+			return "[E] Grab dough" if p.hands_free() else "Dough (hands full)"
 		Kind.TOPPING:
 			if p.held and p.held.stage == Pizza.Stage.RAW:
 				if topping in p.held.toppings:
@@ -24,14 +24,14 @@ func get_prompt(p: Player) -> String:
 				return "[E] Box it"
 			return "Pizza boxes"
 		Kind.TRASH:
-			return "[E] Toss it" if p.held else "Trash"
+			return "Trash" if p.hands_free() else "[E] Toss it"
 	return ""
 
 
 func interact(p: Player) -> void:
 	match kind:
 		Kind.DOUGH:
-			if p.held == null:
+			if p.hands_free():
 				p.set_held(Pizza.new())
 				p.play_sfx(PICKUP, 0.85)
 		Kind.TOPPING:
@@ -44,5 +44,4 @@ func interact(p: Player) -> void:
 				p.held.stage = Pizza.Stage.BOXED
 				p.refresh_held()
 		Kind.TRASH:
-			if p.held:
-				p.set_held(null)
+			p.discard_held()

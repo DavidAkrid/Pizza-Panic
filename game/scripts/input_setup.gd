@@ -21,7 +21,8 @@ func _ready() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = key
 			InputMap.action_add_event(action, ev)
-	InputMap.add_action("attack")
-	var click := InputEventMouseButton.new()
-	click.button_index = MOUSE_BUTTON_LEFT
-	InputMap.action_add_event("attack", click)
+	for pair in [["attack", MOUSE_BUTTON_LEFT], ["throw", MOUSE_BUTTON_RIGHT]]:
+		InputMap.add_action(pair[0])
+		var click := InputEventMouseButton.new()
+		click.button_index = pair[1]
+		InputMap.action_add_event(pair[0], click)
