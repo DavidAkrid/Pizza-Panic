@@ -230,19 +230,8 @@ func _house(root_pos: Vector3, facing: Vector3, address: String, deliverable: bo
 
 	var door := HouseDoor.new()
 	door.house = h
-	door.collision_layer = 3
 	door.position = Vector3(0, 1.05, 3.56)
-	var door_mesh := BoxMesh.new()
-	door_mesh.size = Vector3(1.1, 2.1, 0.12)
-	door_mesh.material = _mat(Color(0.25, 0.12, 0.08))
-	var door_mi := MeshInstance3D.new()
-	door_mi.mesh = door_mesh
-	door.add_child(door_mi)
-	var door_shape := BoxShape3D.new()
-	door_shape.size = door_mesh.size
-	var door_col := CollisionShape3D.new()
-	door_col.shape = door_shape
-	door.add_child(door_col)
+	door.build(_mat(Color(0.25, 0.12, 0.08)))
 	h.add_child(door)
 
 	var sign := Label3D.new()

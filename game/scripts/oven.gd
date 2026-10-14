@@ -6,11 +6,13 @@ const PERFECT_END := 11.0
 const BURN_AT := 15.0
 
 const DING := preload("res://audio/ding.wav")
+const HUM := preload("res://audio/oven_hum.wav")
 
 var _pizza: Pizza
 var _t := 0.0
 var _dinged := false
 var _ding_player: AudioStreamPlayer3D
+var _hum_player: AudioStreamPlayer3D
 
 @onready var label: Label3D = $Status
 @onready var glow: OmniLight3D = $Glow
@@ -21,6 +23,14 @@ func _ready() -> void:
 	_ding_player.stream = DING
 	_ding_player.volume_db = -4.0
 	add_child(_ding_player)
+	var hum: AudioStreamWAV = HUM.duplicate()
+	hum.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	hum.loop_end = int(hum.get_length() * hum.mix_rate)
+	_hum_player = AudioStreamPlayer3D.new()
+	_hum_player.stream = hum
+	_hum_player.volume_db = -14.0
+	_hum_player.unit_size = 3.0
+	add_child(_hum_player)
 
 
 func _process(delta: float) -> void:
@@ -43,7 +53,7 @@ func get_prompt(p: Player) -> String:
 		if p.held and p.held.stage == Pizza.Stage.RAW:
 			return "[E] Bake pizza"
 		return "Oven"
-	return "[E] Take pizza out" if p.hands_free() else "Oven (hands full)"
+	return "[E] Take pizza out" if p.has_room() else "Oven (inventory full)"
 
 
 func interact(p: Player) -> void:
@@ -53,12 +63,14 @@ func interact(p: Player) -> void:
 			_t = 0.0
 			_dinged = false
 			p.set_held(null)
-	elif p.hands_free():
+			_hum_player.play()
+	elif p.has_room():
 		_pizza.stage = Pizza.Stage.BAKED
 		_pizza.bake_quality = _quality()
 		_pizza.bake_label = _label()
-		p.set_held(_pizza)
+		p.give(_pizza)
 		_pizza = null
+		_hum_player.stop()
 
 
 func _status() -> Array:

@@ -11,6 +11,7 @@ const HIT_SPEED := 4.0 # minimum speed for a throw to count as a hit
 const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 0.6, 0.2), Color(0.85, 0.55, 0.1)]
 
 @export var item_name := "Soda"
+@export var kind := "soda" ## what an order calls it: "soda", "sticks", "pizza", or "" for junk
 @export_group("Swung")
 @export var swing_force := 5.0
 @export var swing_stun := 0.5
@@ -22,6 +23,9 @@ const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 
 @export var throw_stun := 1.0
 
 var pizza: Pizza ## set when this is a thrown pizza
+var fry_label := "" ## fried foods: frozen (uncooked) / undercooked / golden / overdone / burnt
+var fry_quality := 0.0
+var _food_material: StandardMaterial3D # recolored as it cooks
 var _live := false # thrown and hasn't hit anything yet
 var _charge := 0.0 # how charged the throw was, 0..1
 # Last few frames of velocity. Contacts can be reported a frame after the bounce already
@@ -36,6 +40,7 @@ static func from_pizza(p: Pizza) -> Throwable:
 	var t := Throwable.new()
 	t.pizza = p
 	t.item_name = "pizza"
+	t.kind = "pizza"
 	t.mass = 0.8
 	t.throw_force = 8.0
 	t.throw_stun = 1.0
@@ -49,6 +54,88 @@ static func from_pizza(p: Pizza) -> Throwable:
 	return t
 
 
+const STICK_COLORS := {
+	"frozen": Color(0.9, 0.92, 0.88),
+	"undercooked": Color(0.95, 0.88, 0.6), "golden": Color(0.9, 0.6, 0.2),
+	"overdone": Color(0.55, 0.32, 0.12), "burnt": Color(0.15, 0.1, 0.06),
+}
+
+
+## A frozen fried food straight from the freezer, ready for the fryer.
+static func make_frozen(food: String) -> Throwable:
+	match food:
+		"sticks": return _make_sticks()
+	push_error("Unknown fried food: " + food)
+	return null
+
+
+static func _make_sticks() -> Throwable:
+	var t := Throwable.new()
+	t.item_name = "Mozzarella Sticks"
+	t.kind = "sticks"
+	t.fry_label = "frozen"
+	t.mass = 0.3
+	t.swing_force = 3.0
+	t.throw_force = 5.0
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.2, 0.08, 0.13)
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	t.add_child(col)
+
+	var root := Node3D.new()
+	root.name = "Mesh"
+	var boat := BoxMesh.new()
+	boat.size = Vector3(0.2, 0.05, 0.13)
+	var boat_mat := StandardMaterial3D.new()
+	boat_mat.albedo_color = Color(0.85, 0.15, 0.12)
+	boat.material = boat_mat
+	var boat_mi := MeshInstance3D.new()
+	boat_mi.mesh = boat
+	boat_mi.position.y = -0.015
+	root.add_child(boat_mi)
+	var stick := CylinderMesh.new()
+	stick.top_radius = 0.016
+	stick.bottom_radius = 0.016
+	stick.height = 0.17
+	stick.radial_segments = 6
+	var stick_mat := StandardMaterial3D.new()
+	stick_mat.albedo_color = STICK_COLORS["frozen"]
+	stick.material = stick_mat
+	t._food_material = stick_mat
+	for i in 4:
+		var mi := MeshInstance3D.new()
+		mi.mesh = stick
+		mi.rotation.z = PI / 2.0
+		mi.position = Vector3(0, 0.022 + (i % 2) * 0.012, -0.045 + i * 0.03)
+		root.add_child(mi)
+	t.add_child(root)
+	return t
+
+
+func is_frozen() -> bool:
+	return fry_label == "frozen"
+
+
+## Called by the fryer when the basket comes out.
+func cook(label: String, quality: float) -> void:
+	fry_label = label
+	fry_quality = quality
+	if _food_material:
+		_food_material.albedo_color = STICK_COLORS.get(label, STICK_COLORS["golden"])
+
+
+## How it reads in the HUD and prompts.
+func describe() -> String:
+	if pizza:
+		return pizza.describe()
+	if is_frozen():
+		return "Frozen " + item_name
+	if fry_label != "":
+		return "%s (%s)" % [item_name, fry_label]
+	return item_name
+
+
 func _ready() -> void:
 	collision_layer = LAYER
 	collision_mask = MASK
@@ -59,19 +146,12 @@ func _ready() -> void:
 	_audio = AudioStreamPlayer3D.new()
 	_audio.stream = THUD if pizza else CLINK
 	add_child(_audio)
-	if pizza == null:
-		var mesh := get_node_or_null("Mesh") as MeshInstance3D
-		if mesh and mesh.material_override == null:
-			var mat := StandardMaterial3D.new()
-			mat.albedo_color = SODA_COLORS.pick_random()
-			mat.metallic = 0.6
-			mat.roughness = 0.35
-			mesh.material_override = mat
+	_paint_soda()
 
 
 func get_prompt(p: Player) -> String:
-	var what := pizza.describe() if pizza else item_name
-	return "[E] Pick up %s" % what if p.hands_free() else "%s (hands full)" % what
+	var what := describe()
+	return "[E] Pick up %s" % what if p.has_room() else "%s (inventory full)" % what
 
 
 func interact(p: Player) -> void:
@@ -82,6 +162,7 @@ func interact(p: Player) -> void:
 func held_visual() -> Node3D:
 	if pizza:
 		return pizza.build_visual()
+	_paint_soda() # dispensed cans go straight to a hand without ever entering the world
 	var v: Node3D = get_node("Mesh").duplicate()
 	v.transform = Transform3D.IDENTITY
 	v.scale = Vector3.ONE * 1.6 # the hand node is scaled down for pizzas
@@ -89,6 +170,19 @@ func held_visual() -> Node3D:
 
 
 ## `charge_amount` (0 = tap, 1 = full) scales how hard it hits and how much a pizza suffers.
+## Gives a soda can its random brand color, once.
+func _paint_soda() -> void:
+	if kind != "soda":
+		return
+	var mesh := get_node_or_null("Mesh") as MeshInstance3D
+	if mesh and mesh.material_override == null:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = SODA_COLORS.pick_random()
+		mat.metallic = 0.6
+		mat.roughness = 0.35
+		mesh.material_override = mat
+
+
 func thrown(charge_amount: float) -> void:
 	_live = true
 	_charge = charge_amount

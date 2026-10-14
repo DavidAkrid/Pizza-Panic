@@ -56,9 +56,27 @@ const HAND_WOUND_THROW_ROT := Vector3(0.8, 0.0, 0.0) # tipped back, front edge u
 
 enum Charging { NONE, ATTACK, THROW }
 
-var held: Pizza ## the pizza in your hands (data), or null
-var held_item: Throwable ## a picked-up world object, or null
+## Inventory. Each slot holds a Pizza (data), a Throwable (a picked-up world object), or null.
+## Starts with 2 slots; upgrades will add more (keys 1-6 are already bound).
+var slots: Array = [null, null]
+var active_slot := 0
+## The pizza in the selected slot, or null.
+var held: Pizza:
+	get:
+		return slots[active_slot] as Pizza
+	set(value):
+		slots[active_slot] = value
+## The world object in the selected slot, or null.
+var held_item: Throwable:
+	get:
+		return slots[active_slot] as Throwable
+	set(value):
+		slots[active_slot] = value
 var stamina := STAMINA_MAX
+# Upgradable stats (see Game.UPGRADES / apply_upgrade).
+var stamina_max := STAMINA_MAX
+var speed_mult := 1.0
+var punch_mult := 1.0
 var in_shop := false
 var charge := 0.0 ## 0..1 while winding up
 var _charging := Charging.NONE
@@ -129,6 +147,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	for i in 6:
+		if event.is_action_pressed("slot_%d" % (i + 1)):
+			select_slot(i)
+			return
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed("attack"):
@@ -141,6 +163,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_button_released(Charging.THROW)
 	elif event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event.is_action_pressed("slot_next"):
+		select_slot(wrapi(active_slot + 1, 0, slots.size()))
+	elif event.is_action_pressed("slot_prev"):
+		select_slot(wrapi(active_slot - 1, 0, slots.size()))
 	elif event.is_action_pressed("flashlight"):
 		flashlight.visible = not flashlight.visible
 	elif event.is_action_pressed("interact"):
@@ -160,15 +186,112 @@ func get_interact_target():
 	return null
 
 
+# --- Upgrades -----------------------------------------------------------------
+
+## Applies an upgrade the player just bought; `level` is the new level (1 = first purchase).
+func apply_upgrade(id: String, level: int) -> void:
+	match id:
+		"shoes":
+			speed_mult = 1.0 + 0.1 * level
+		"bag":
+			slots.append(null)
+		"knuckles":
+			punch_mult = 1.0 + 0.3 * level
+		"flashlight":
+			flashlight.spot_range = 20.0 + 8.0 * level
+			flashlight.spot_angle = 28.0 + 6.0 * level
+			flashlight.light_energy = 3.0 + 1.0 * level
+		"energy":
+			stamina_max = STAMINA_MAX * (1.0 + 0.3 * level)
+			stamina = stamina_max
+
+
 # --- Holding things -----------------------------------------------------------
 
+## True when the selected slot is empty (fists out).
 func hands_free() -> bool:
-	return held == null and held_item == null
+	return slots[active_slot] == null
+
+
+## True when any slot is empty.
+func has_room() -> bool:
+	return slots.has(null)
+
+
+func select_slot(i: int) -> void:
+	if i < 0 or i >= slots.size() or i == active_slot:
+		return
+	_cancel_charge()
+	if _anim_tween:
+		_anim_tween.kill()
+	hand.transform = _hand_rest
+	_fist.visible = false
+	active_slot = i
+	refresh_held()
+
+
+## Puts something in the selected slot if it's empty, otherwise the first empty slot.
+## Returns false if the inventory is full.
+func give(thing: Variant) -> bool:
+	var i := active_slot if slots[active_slot] == null else slots.find(null)
+	if i == -1:
+		return false
+	slots[i] = thing
+	refresh_held()
+	return true
+
+
+## Removes a specific thing from whichever slot holds it.
+func take(thing: Variant) -> void:
+	var i := slots.find(thing)
+	if i != -1:
+		slots[i] = null
+		refresh_held()
+
+
+## Any pizza or fried food on you makes monsters smell you from further away.
+func carrying_food() -> bool:
+	for thing in slots:
+		if thing is Pizza or (thing is Throwable and thing.kind == "sticks"):
+			return true
+	return false
+
+
+## The pizza monsters will go after: the one in your hand, else any you're carrying.
+func exposed_pizza() -> Pizza:
+	if held:
+		return held
+	for thing in slots:
+		if thing is Pizza:
+			return thing
+	return null
 
 
 func set_held(p: Pizza) -> void:
 	held = p
 	refresh_held()
+
+
+## Shakes whatever is in your hand and tints it red for a moment (damage feedback).
+func flash_held() -> void:
+	var red := StandardMaterial3D.new()
+	red.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	red.albedo_color = Color(1, 0.1, 0.05, 0.6)
+	red.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Quick shake of the held thing (its visual, so it doesn't fight swing/charge poses on the hand).
+	var visual := hand.get_child(hand.get_child_count() - 1) as Node3D if hand.get_child_count() > 0 else null
+	if visual:
+		var tw := visual.create_tween()
+		for i in 4:
+			tw.tween_property(visual, "position", Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.03, 0.03)
+		tw.tween_property(visual, "position", Vector3.ZERO, 0.04)
+	var meshes := hand.find_children("*", "MeshInstance3D", true, false)
+	for mi: MeshInstance3D in meshes:
+		mi.material_overlay = red
+	get_tree().create_timer(0.15).timeout.connect(func() -> void:
+		for mi in meshes: # untyped: some may have been freed by a newer refresh_held()
+			if is_instance_valid(mi):
+				mi.material_overlay = null)
 
 
 func refresh_held() -> void:
@@ -181,15 +304,14 @@ func refresh_held() -> void:
 
 
 func pick_up(item: Throwable) -> void:
-	if not hands_free():
+	# A thrown pizza goes back to being pizza data; other objects are stored as-is.
+	var thing: Variant = item.pizza if item.pizza else item
+	if not give(thing):
 		return
-	if item.pizza: # a thrown pizza goes back to being "the pizza in your hands"
-		set_held(item.pizza)
+	if item.pizza:
 		item.queue_free()
 	else:
 		item.get_parent().remove_child(item)
-		held_item = item
-		refresh_held()
 	play_sfx(PICKUP, 0.9)
 
 
@@ -310,6 +432,8 @@ func _attack(power: float) -> void:
 			return a.global_position.distance_to(global_position) < b.global_position.distance_to(global_position))
 		targets.resize(1)
 	var force: float = w.force * lerpf(1.0, CHARGE_FORCE_MULT, power)
+	if hands_free():
+		force *= punch_mult
 	var stun: float = w.stun * lerpf(1.0, CHARGE_STUN_MULT, power)
 	for m in targets:
 		var away := m.global_position - global_position
@@ -419,14 +543,14 @@ func _physics_process(delta: float) -> void:
 	if sprinting:
 		stamina = maxf(stamina - delta, 0.0)
 	else:
-		stamina = minf(stamina + STAMINA_REGEN * delta, STAMINA_MAX)
+		stamina = minf(stamina + STAMINA_REGEN * delta, stamina_max)
 
 	if _stun > 0.0:
 		_stun -= delta
 		velocity.x = lerpf(velocity.x, 0.0, 2.0 * delta)
 		velocity.z = lerpf(velocity.z, 0.0, 2.0 * delta)
 	else:
-		var speed := SPRINT_SPEED if sprinting else WALK_SPEED
+		var speed := (SPRINT_SPEED if sprinting else WALK_SPEED) * speed_mult
 		var w := clampf(ACCEL * delta, 0.0, 1.0)
 		velocity.x = lerpf(velocity.x, dir.x * speed, w)
 		velocity.z = lerpf(velocity.z, dir.z * speed, w)

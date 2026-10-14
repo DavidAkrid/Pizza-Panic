@@ -7,7 +7,8 @@
 [ext_resource type="Script" path="res://scripts/station.gd" id="5_station"]
 [ext_resource type="Script" path="res://scripts/oven.gd" id="6_oven"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="7_player"]
-[ext_resource type="PackedScene" path="res://scenes/soda_can.tscn" id="8_can"]
+[ext_resource type="Script" path="res://scripts/fryer.gd" id="8_fryer"]
+[ext_resource type="Script" path="res://scripts/upgrade_station.gd" id="9_upgrade"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 1
@@ -104,6 +105,49 @@ size = Vector3(0.95, 1, 1)
 [sub_resource type="BoxShape3D" id="shape_counter"]
 size = Vector3(0.95, 1, 1)
 
+[sub_resource type="StandardMaterial3D" id="mat_oil"]
+albedo_color = Color(0.45, 0.28, 0.05, 1)
+metallic = 0.3
+roughness = 0.15
+
+[sub_resource type="StandardMaterial3D" id="mat_basket"]
+albedo_color = Color(0.6, 0.6, 0.62, 1)
+metallic = 0.8
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="mesh_fryer"]
+material = SubResource("mat_oven")
+size = Vector3(1.4, 1, 1)
+
+[sub_resource type="BoxShape3D" id="shape_fryer"]
+size = Vector3(1.4, 1, 1)
+
+[sub_resource type="BoxMesh" id="mesh_oil"]
+material = SubResource("mat_oil")
+size = Vector3(1.1, 0.02, 0.7)
+
+[sub_resource type="BoxMesh" id="mesh_basket"]
+material = SubResource("mat_basket")
+size = Vector3(0.45, 0.12, 0.35)
+
+[sub_resource type="BoxMesh" id="mesh_cooler"]
+material = SubResource("mat_cooler")
+size = Vector3(0.8, 0.9, 1.2)
+
+[sub_resource type="BoxShape3D" id="shape_cooler"]
+size = Vector3(0.8, 0.9, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="mat_freezer"]
+albedo_color = Color(0.82, 0.88, 0.92, 1)
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="mesh_freezer"]
+material = SubResource("mat_freezer")
+size = Vector3(0.8, 1.8, 1.2)
+
+[sub_resource type="BoxShape3D" id="shape_freezer"]
+size = Vector3(0.8, 1.8, 1.2)
+
 [sub_resource type="BoxShape3D" id="shape_station_top"]
 size = Vector3(0.7, 0.4, 0.7)
 
@@ -170,7 +214,7 @@ height = 0.9
 
 [sub_resource type="BoxMesh" id="mesh_board"]
 material = SubResource("mat_chalk")
-size = Vector3(2.6, 1.3, 0.06)
+size = Vector3(2.8, 1.5, 0.06)
 
 [sub_resource type="CylinderMesh" id="mesh_shade"]
 material = SubResource("mat_shade")
@@ -305,11 +349,50 @@ use_collision = true
 size = Vector3(0.9, 1, 1)
 material = SubResource("mat_counter")
 
-[node name="CounterR" type="CSGBox3D" parent="Shop"]
+[node name="Fryer" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.25, 0.5, 7.45)
-use_collision = true
-size = Vector3(1.5, 1, 1)
-material = SubResource("mat_counter")
+collision_layer = 3
+script = ExtResource("8_fryer")
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Fryer"]
+mesh = SubResource("mesh_fryer")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Fryer"]
+shape = SubResource("shape_fryer")
+
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
+
+[node name="Oil" type="MeshInstance3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("mesh_oil")
+
+[node name="Basket" type="MeshInstance3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, 0)
+mesh = SubResource("mesh_basket")
+
+[node name="Glow" type="OmniLight3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -0.3)
+light_color = Color(1, 0.6, 0.2, 1)
+light_energy = 0.0
+omni_range = 2.5
+
+[node name="Tag" type="Label3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "FRYER"
+font_size = 32
+outline_size = 6
+
+[node name="Status" type="Label3D" parent="Shop/Fryer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+pixel_size = 0.006
+billboard = 1
+no_depth_test = true
+font_size = 36
+outline_size = 8
 
 [node name="Dough" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.5, 7.45)
@@ -540,7 +623,7 @@ font_size = 32
 outline_size = 6
 
 [node name="OrderBoard" type="MeshInstance3D" parent="Shop"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 7.95)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.45, 7.95)
 mesh = SubResource("mesh_board")
 
 [node name="Text" type="Label3D" parent="Shop/OrderBoard"]
@@ -548,7 +631,7 @@ transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, -0.05)
 pixel_size = 0.006
 modulate = Color(0.95, 0.95, 0.9, 1)
 text = "ORDER UP!"
-font_size = 40
+font_size = 28
 outline_size = 0
 
 [node name="TableL" type="CSGBox3D" parent="Shop"]
@@ -587,11 +670,37 @@ use_collision = true
 size = Vector3(1.4, 0.5, 0.5)
 material = SubResource("mat_booth")
 
-[node name="Cooler" type="CSGBox3D" parent="Shop"]
+[node name="Freezer" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 0.9, 6.05)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 5
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Freezer"]
+mesh = SubResource("mesh_freezer")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Freezer"]
+shape = SubResource("shape_freezer")
+
+[node name="Tag" type="Label3D" parent="Shop/Freezer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+pixel_size = 0.005
+billboard = 1
+text = "FREEZER"
+font_size = 32
+outline_size = 6
+
+[node name="Cooler" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 0.45, 4.6)
-use_collision = true
-size = Vector3(0.8, 0.9, 1.2)
-material = SubResource("mat_cooler")
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 4
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Cooler"]
+mesh = SubResource("mesh_cooler")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Cooler"]
+shape = SubResource("shape_cooler")
 
 [node name="Tag" type="Label3D" parent="Shop/Cooler"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
@@ -601,23 +710,30 @@ text = "SODA"
 font_size = 32
 outline_size = 6
 
-[node name="Can1" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.35, 0.97, 4.2)
+[node name="Upgrade_shoes" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.95, 2.0, 0.7)
+script = ExtResource("9_upgrade")
+upgrade_id = "shoes"
 
-[node name="Can2" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.35, 0.97, 4.6)
+[node name="Upgrade_bag" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.95, 2.0, 1.6)
+script = ExtResource("9_upgrade")
+upgrade_id = "bag"
 
-[node name="Can3" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.35, 0.97, 5.0)
+[node name="Upgrade_knuckles" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.95, 2.0, 2.5)
+script = ExtResource("9_upgrade")
+upgrade_id = "knuckles"
 
-[node name="Can4" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.65, 0.97, 4.2)
+[node name="Upgrade_flashlight" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.95, 2.0, 3.4)
+script = ExtResource("9_upgrade")
+upgrade_id = "flashlight"
 
-[node name="Can5" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.65, 0.97, 4.6)
-
-[node name="Can6" parent="Shop" instance=ExtResource("8_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.65, 0.97, 5.0)
+[node name="Upgrade_energy" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.95, 2.0, 4.3)
+script = ExtResource("9_upgrade")
+upgrade_id = "energy"
 
 [node name="ShopArea" type="Area3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 4)

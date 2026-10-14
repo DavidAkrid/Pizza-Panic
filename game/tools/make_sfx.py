@@ -118,6 +118,98 @@ def clink():
     return out
 
 
+def hitmarker():
+    """Crisp little 'tick' for damage feedback."""
+    n = int(RATE * 0.06)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        env = math.exp(-t * 90)
+        s = math.sin(2 * math.pi * 2600 * t) + 0.5 * math.sin(2 * math.pi * 4100 * t)
+        out.append(s * env * min(t / 0.0003, 1.0))
+    return out
+
+
+def knock():
+    """Three knuckle raps on a wooden door."""
+    rng = random.Random(11)
+    n = int(RATE * 0.6)
+    out = [0.0] * n
+    for k, start in enumerate([0.0, 0.17, 0.34]):
+        noise = lowpass([rng.uniform(-1, 1) for _ in range(int(RATE * 0.12))], 1800)
+        amp = 1.0 if k < 2 else 0.85
+        for i in range(len(noise)):
+            t = i / RATE
+            body = math.sin(2 * math.pi * 170 * t) * 0.9 + math.sin(2 * math.pi * 410 * t) * 0.4
+            s = (body * math.exp(-t * 45) + noise[i] * 2.5 * math.exp(-t * 120)) * amp
+            j = int(start * RATE) + i
+            if j < n:
+                out[j] += s * min(t / 0.0005, 1.0)
+    return out
+
+
+def oven_hum():
+    """Seamless 2s loop: mains hum (whole cycles, so the loop point is clean) plus fan rush."""
+    rng = random.Random(13)
+    dur, fade = 2.0, 0.15
+    n, nf = int(RATE * dur), int(RATE * fade)
+    noise = lowpass([rng.uniform(-1, 1) for _ in range(n + nf)], 700)
+    # Crossfade the extra tail into the head so the noise loops without a click.
+    for i in range(nf):
+        a = i / nf
+        noise[i] = noise[i] * a + noise[n + i] * (1 - a)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        hum = math.sin(2 * math.pi * 60 * t) * 0.5 + math.sin(2 * math.pi * 120 * t) * 0.3 + math.sin(2 * math.pi * 180 * t) * 0.1
+        out.append(hum * 0.6 + noise[i] * 2.0)
+    return out
+
+
+def fryer_sizzle():
+    """Seamless 2s loop: bright oil hiss with random crackles and pops."""
+    rng = random.Random(17)
+    dur, fade = 2.0, 0.15
+    n, nf = int(RATE * dur), int(RATE * fade)
+    total = n + nf
+    raw = [rng.uniform(-1, 1) for _ in range(total)]
+    low = lowpass(raw, 2500)
+    hiss = [r - l for r, l in zip(raw, low)]  # high-passed: the "shhh"
+    out = [0.0] * total
+    for i in range(total):
+        wobble = 0.7 + 0.3 * math.sin(2 * math.pi * 3 * i / RATE + rng.uniform(-0.05, 0.05))
+        out[i] = hiss[i] * 0.35 * wobble
+    for _ in range(140):  # crackles
+        start = rng.randrange(total)
+        amp = rng.uniform(0.3, 1.0)
+        for j in range(int(RATE * 0.006)):
+            if start + j < total:
+                out[start + j] += rng.uniform(-1, 1) * amp * math.exp(-j / (RATE * 0.0015))
+    for i in range(nf):  # crossfade the tail into the head so the loop is seamless
+        a = i / nf
+        out[i] = out[i] * a + out[n + i] * (1 - a)
+    return out[:n]
+
+
+def kaching():
+    """Cash register: drawer rattle into two bright bell hits."""
+    rng = random.Random(19)
+    n = int(RATE * 0.9)
+    out = [0.0] * n
+    rattle = lowpass([rng.uniform(-1, 1) for _ in range(int(RATE * 0.08))], 3000)
+    for i, r in enumerate(rattle):
+        out[i] += r * 1.5 * math.exp(-i / RATE * 30)
+    for start, f0 in [(0.07, 2093.0), (0.16, 2637.0)]:  # C7 then E7
+        for i in range(int(RATE * 0.7)):
+            t = i / RATE
+            s = sum(a * math.sin(2 * math.pi * f0 * r * t) * math.exp(-t * d)
+                    for r, a, d in [(1.0, 1.0, 5.0), (2.0, 0.3, 8.0), (3.0, 0.15, 12.0)])
+            j = int(start * RATE) + i
+            if j < n:
+                out[j] += s * 0.6 * min(t / 0.001, 1.0)
+    return out
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for k in range(4):
@@ -127,3 +219,8 @@ if __name__ == "__main__":
     write("whoosh.wav", whoosh())
     write("thud.wav", thud())
     write("clink.wav", clink())
+    write("hitmarker.wav", hitmarker())
+    write("knock.wav", knock())
+    write("oven_hum.wav", oven_hum())
+    write("fryer_sizzle.wav", fryer_sizzle())
+    write("kaching.wav", kaching())

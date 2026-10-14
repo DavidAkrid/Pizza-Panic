@@ -3,17 +3,43 @@ extends Node
 ## Runs the loop: orders, delivery + payment, shop-vs-outside mood, monster spawns.
 
 const SHAMBLER := preload("res://scenes/shambler.tscn")
-const BASE_PAY := 20.0
+const HITMARKER_SFX := preload("res://audio/hitmarker.wav")
+const KACHING := preload("res://audio/kaching.wav")
+## Shop wall upgrades. Costs list one price per level; effects live in Player.apply_upgrade.
+const UPGRADES := {
+	"shoes": {"name": "Running Shoes", "effect": "+10% move speed", "costs": [30, 60, 100]},
+	"bag": {"name": "Bigger Bag", "effect": "+1 inventory slot", "costs": [50, 100, 150, 200]},
+	"knuckles": {"name": "Brass Knuckles", "effect": "+30% punch power", "costs": [40, 80, 120]},
+	"flashlight": {"name": "Better Flashlight", "effect": "brighter, wider, further", "costs": [25, 60]},
+	"energy": {"name": "Energy Drink", "effect": "+30% stamina", "costs": [30, 60, 90]},
+}
+const PAY := {"pizza": 20.0, "sticks": 8.0, "soda": 3.0} # base pay per item before quality
 const PERFECT_TIP := 10
+## Chance weights for what an order item is.
+const ITEM_WEIGHTS := {"pizza": 6.0, "sticks": 3.0, "soda": 2.0}
 const HIT_DAMAGE := 34.0 # monster bite
 const SWING_DAMAGE := 15.0 # using the pizza as a weapon
+## An unboxed pizza outside the shop slowly goes cold: a nudge to box it before heading out.
+const COLD_DAMAGE := 1.0
+const COLD_INTERVAL := 3.0
 ## Shop footprint on the XZ plane (plus a buffer outside the door). Monsters never enter it.
 const SHOP_MIN := Vector2(-5.6, -0.8)
 const SHOP_MAX := Vector2(5.6, 8.6)
 const SHOP_DOOR := Vector3(0, 2.2, -0.5)
 
+class OrderItem:
+	var kind: String ## "pizza", "sticks", or "soda"
+	var toppings: Array[String] = [] ## pizza only
+
+	func describe() -> String:
+		match kind:
+			"pizza": return "Pizza: " + " + ".join(PackedStringArray(toppings))
+			"sticks": return "Mozzarella Sticks"
+		return "Soda"
+
+
 class Order:
-	var toppings: Array[String] = []
+	var items: Array[OrderItem] = [] ## what's still owed
 	var house: House
 
 static var instance: Game
@@ -28,8 +54,10 @@ static var instance: Game
 var money := 0
 var order: Order
 var freeze_monsters := false
+var upgrade_levels := {} ## id -> levels bought
 var _last_house: House
 var _env_tween: Tween
+var _cold_timer := 0.0
 
 
 static func is_in_shop(pos: Vector3) -> bool:
@@ -46,13 +74,14 @@ func _ready() -> void:
 	_spawn_monsters.call_deferred()
 	_set_inside(true)
 	_new_order()
-	hud.show_message("Welcome to Pizza Panic.\nCheck the order board, make the pizza, deliver it.", 6.0)
+	hud.show_message("Welcome to Pizza Panic.\nCheck the order board, make the order, deliver it.", 6.0)
 	var shot_dir := _arg("--shots=")
 	if shot_dir != "":
 		_run_shots(shot_dir)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_tick_cold(delta)
 	var chasing := false
 	for m in get_tree().get_nodes_in_group("monster"):
 		if (m as Shambler).is_chasing():
@@ -66,10 +95,18 @@ func _process(_delta: float) -> void:
 
 func _new_order() -> void:
 	var o := Order.new()
-	var names: Array = Pizza.TOPPINGS.keys()
-	names.shuffle()
-	for i in randi_range(1, 2):
-		o.toppings.append(names[i])
+	if _last_house == null:
+		o.items.append(_random_item("pizza")) # first order is always just a pizza
+	else:
+		# 1-2 different things, never more than the player can carry.
+		var kinds: Array[String] = []
+		for i in randi_range(1, mini(2, player.slots.size())):
+			var k := _weighted_kind()
+			while k in kinds:
+				k = _weighted_kind()
+			kinds.append(k)
+		for k in kinds:
+			o.items.append(_random_item(k))
 	var houses := neighborhood.houses
 	if _last_house == null:
 		o.house = houses[0] # first delivery is always the close one
@@ -80,75 +117,201 @@ func _new_order() -> void:
 	order = o
 	for h in houses:
 		h.set_active(h == o.house)
-	order_board.text = "ORDER UP!\n%s\nDeliver to %s" % [" + ".join(PackedStringArray(o.toppings)), o.house.address]
+	_update_order_board()
+
+
+func _weighted_kind() -> String:
+	var total := 0.0
+	for w: float in ITEM_WEIGHTS.values():
+		total += w
+	var roll := randf() * total
+	for k: String in ITEM_WEIGHTS:
+		roll -= ITEM_WEIGHTS[k]
+		if roll <= 0.0:
+			return k
+	return "pizza"
+
+
+func _random_item(kind: String) -> OrderItem:
+	var item := OrderItem.new()
+	item.kind = kind
+	if kind == "pizza":
+		var names: Array = Pizza.TOPPINGS.keys()
+		names.shuffle()
+		for i in randi_range(1, 2):
+			item.toppings.append(names[i])
+	return item
+
+
+func _update_order_board() -> void:
+	if order == null:
+		order_board.text = "No orders right now."
+		return
+	var lines := PackedStringArray(["ORDER UP!"])
+	for item in order.items:
+		lines.append(item.describe())
+	lines.append("Deliver to " + order.house.address)
+	order_board.text = "\n".join(lines)
+
+
+## The inventory thing that would fill this order item, or null.
+func _find_in_inventory(item: OrderItem, p: Player) -> Variant:
+	for thing in p.slots:
+		if item.kind == "pizza" and thing is Pizza and thing.stage == Pizza.Stage.BOXED:
+			return thing
+		if thing is Throwable and thing.kind == item.kind and not thing.is_frozen():
+			return thing
+	return null
+
+
+func is_order_house(house: House) -> bool:
+	return order != null and order.house == house
 
 
 func door_prompt(house: House, p: Player) -> String:
-	if order and order.house == house:
-		if p.held and p.held.stage == Pizza.Stage.BOXED:
-			return "[E] Deliver to %s" % house.address
-		return "%s is waiting for a boxed pizza" % house.address
-	return "%s - nobody ordered" % house.address
+	if is_order_house(house):
+		for item in order.items:
+			if _find_in_inventory(item, p) != null:
+				return "[E] Deliver to %s" % house.address
+	return "[E] Knock"
 
 
+## Hands over every ordered thing you're carrying. Partial deliveries are fine;
+## the order stays open until everything has arrived.
 func try_deliver(house: House, p: Player) -> void:
 	if order == null or order.house != house:
-		hud.show_message("Nobody here ordered a pizza.", 2.0)
+		hud.show_message("Nobody here ordered anything.", 2.0)
 		return
-	var pizza := p.held
-	if pizza == null or pizza.stage != Pizza.Stage.BOXED:
-		hud.show_message("You need a boxed pizza.", 2.0)
+	var lines := PackedStringArray()
+	var total := 0
+	for item in order.items.duplicate():
+		var thing: Variant = _find_in_inventory(item, p)
+		if thing == null:
+			continue
+		var result := _score(item, thing)
+		total += result[0]
+		lines.append(result[1])
+		p.take(thing)
+		if thing is Throwable:
+			thing.queue_free()
+		order.items.erase(item)
+	if lines.is_empty():
+		var wanted := PackedStringArray()
+		for item in order.items:
+			wanted.append(item.describe() + (" (boxed)" if item.kind == "pizza" else ""))
+		hud.show_message("They ordered:\n" + "\n".join(wanted), 3.0)
 		return
-
-	var correct := 0
-	for t in order.toppings:
-		if t in pizza.toppings:
-			correct += 1
-	var missing := order.toppings.size() - correct
-	var extra := pizza.toppings.size() - correct
-	var accuracy := clampf(1.0 - 0.35 * missing - 0.2 * extra, 0.1, 1.0)
-	var pay := int(round(BASE_PAY * accuracy * pizza.bake_quality * pizza.condition / 100.0))
-	var tip := 0
-	if missing == 0 and extra == 0 and pizza.bake_label == "perfect" and pizza.condition >= 100.0:
-		tip = PERFECT_TIP
-	money += pay + tip
-
-	p.set_held(null)
-	house.set_active(false)
-	_last_house = house
-	order = null
-	order_board.text = "No orders right now."
-
-	var lines := PackedStringArray(["Delivered! +$%d" % (pay + tip)])
-	if missing == 0 and extra == 0:
-		lines.append("Toppings: correct")
+	money += total
+	lines.insert(0, "Delivered! +$%d" % total)
+	if order.items.is_empty():
+		house.set_active(false)
+		_last_house = house
+		order = null
+		lines.append("Order complete. Head back to the shop.")
 	else:
-		lines.append("Toppings: %d missing, %d extra" % [missing, extra])
-	lines.append("Bake: %s   Condition: %d%%" % [pizza.bake_label, int(pizza.condition)])
-	if tip > 0:
-		lines.append("Perfect pizza! +$%d tip" % tip)
-	lines.append("Head back to the shop.")
+		var left := PackedStringArray()
+		for item in order.items:
+			left.append(item.describe())
+		lines.append("Still waiting on: " + ", ".join(left))
+	_update_order_board()
 	hud.show_message("\n".join(lines), 6.0)
 
 
+## [pay, summary line] for handing over `thing` to fill `item`.
+func _score(item: OrderItem, thing: Variant) -> Array:
+	match item.kind:
+		"pizza":
+			var pizza: Pizza = thing
+			var correct := 0
+			for t in item.toppings:
+				if t in pizza.toppings:
+					correct += 1
+			var missing := item.toppings.size() - correct
+			var extra := pizza.toppings.size() - correct
+			var accuracy := clampf(1.0 - 0.35 * missing - 0.2 * extra, 0.1, 1.0)
+			var pay := int(round(PAY.pizza * accuracy * pizza.bake_quality * pizza.condition / 100.0))
+			var toppings := "toppings right" if missing == 0 and extra == 0 else "%d missing, %d extra" % [missing, extra]
+			var line := "Pizza $%d: %s, %s, %d%% intact" % [pay, toppings, pizza.bake_label, int(pizza.condition)]
+			if missing == 0 and extra == 0 and pizza.bake_label == "perfect" and pizza.condition >= 100.0:
+				pay += PERFECT_TIP
+				line += " (+$%d tip!)" % PERFECT_TIP
+			return [pay, line]
+		"sticks":
+			var sticks: Throwable = thing
+			var pay := int(round(PAY.sticks * sticks.fry_quality))
+			return [pay, "Mozzarella Sticks $%d: %s" % [pay, sticks.fry_label]]
+	return [int(PAY.soda), "Soda $%d" % int(PAY.soda)]
+
+
+# --- Upgrades -----------------------------------------------------------------
+
+func upgrade_level(id: String) -> int:
+	return upgrade_levels.get(id, 0)
+
+
+## Price of the next level, or -1 if maxed out.
+func upgrade_cost(id: String) -> int:
+	var costs: Array = UPGRADES[id].costs
+	var level := upgrade_level(id)
+	return costs[level] if level < costs.size() else -1
+
+
+func buy_upgrade(id: String) -> void:
+	var cost := upgrade_cost(id)
+	if cost < 0:
+		return
+	if money < cost:
+		hud.show_message("Need $%d more." % (cost - money), 2.0)
+		return
+	money -= cost
+	var level := upgrade_level(id) + 1
+	upgrade_levels[id] = level
+	player.apply_upgrade(id, level)
+	player.play_sfx(KACHING, 1.0, -4.0)
+	hud.show_message("Bought %s!\n%s" % [UPGRADES[id].name, UPGRADES[id].effect], 2.5)
+
+
 func _on_player_hit() -> void:
-	_damage_pizza(HIT_DAMAGE, "They got the pizza!")
+	var p := player.exposed_pizza()
+	if p:
+		_damage_pizza(p, HIT_DAMAGE, "They got the pizza!")
 
 
 func _on_pizza_swung() -> void:
-	_damage_pizza(SWING_DAMAGE, "Pizza to the face!")
+	if player.held:
+		_damage_pizza(player.held, SWING_DAMAGE, "Pizza to the face!")
 
 
-func _damage_pizza(amount: float, what: String) -> void:
-	var p := player.held
-	if p == null:
+func _tick_cold(delta: float) -> void:
+	var exposed: Array[Pizza] = []
+	if not player.in_shop:
+		for thing in player.slots:
+			if thing is Pizza and thing.stage != Pizza.Stage.BOXED:
+				exposed.append(thing)
+	if exposed.is_empty():
+		_cold_timer = 0.0
 		return
+	_cold_timer += delta
+	if _cold_timer >= COLD_INTERVAL:
+		_cold_timer -= COLD_INTERVAL
+		for p in exposed:
+			_damage_pizza(p, COLD_DAMAGE, "") # quiet: just the flash and hitmarker
+
+
+## Damages a carried pizza with feedback: hitmarker, red flash, and a message if `what` is set.
+func _damage_pizza(p: Pizza, amount: float, what: String) -> void:
 	p.condition -= amount
+	hud.hit_marker()
+	player.play_sfx(HITMARKER_SFX, randf_range(0.95, 1.05), -6.0)
+	hud.flash_slot(player.slots.find(p))
 	if p.condition <= 0.0:
-		player.set_held(null)
+		player.take(p)
 		hud.show_message("The pizza is destroyed!\nBack to the shop to make another.", 4.0)
-	else:
-		player.refresh_held()
+		return
+	player.refresh_held()
+	if p == player.held:
+		player.flash_held()
+	if what != "":
 		hud.show_message("%s %d%% left" % [what, int(p.condition)], 2.0)
 
 
@@ -193,27 +356,18 @@ func _set_inside(inside: bool) -> void:
 func _refresh_hud() -> void:
 	var lines := PackedStringArray()
 	if order:
-		lines.append("ORDER: " + " + ".join(PackedStringArray(order.toppings)))
 		lines.append("DELIVER TO: " + order.house.address)
+		for item in order.items:
+			lines.append("- " + item.describe())
 	else:
 		lines.append("No order. Head back to the shop.")
 	hud.order_label.text = "\n".join(lines)
-	if player.held:
-		hud.hands_label.text = player.held.describe()
-	elif player.held_item:
-		hud.hands_label.text = player.held_item.item_name
-	else:
-		hud.hands_label.text = "Fists"
+	hud.set_slots(player.slots, player.active_slot)
 	hud.money_label.text = "$%d" % money
-	hud.set_stamina(player.stamina / Player.STAMINA_MAX)
+	hud.set_stamina(player.stamina / player.stamina_max)
 
 	var target = player.get_interact_target()
-	if target:
-		hud.prompt_label.text = target.get_prompt(player)
-	elif not player.hands_free():
-		hud.prompt_label.text = "[E] Drop"
-	else:
-		hud.prompt_label.text = ""
+	hud.prompt_label.text = target.get_prompt(player) if target else ""
 
 	var fwd := -player.global_transform.basis.z
 	hud.compass.heading = atan2(fwd.x, -fwd.z)

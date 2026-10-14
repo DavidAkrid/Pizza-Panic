@@ -6,10 +6,11 @@ enum State { WANDER, CHASE }
 
 const WANDER_SPEED := 1.1
 const CHASE_SPEED := 4.4 # faster than walking, slower than sprinting
-const SMELL_RANGE := 14.0 # when you're carrying a pizza
+const SMELL_RANGE := 14.0 # when you're carrying food
 const SIGHT_RANGE := 6.0 # empty-handed
 const GIVE_UP_RANGE := 24.0
 const HIT_RANGE := 1.3
+const STOP_RANGE := 1.0 # stand off this far instead of walking into/through the player
 const HIT_COOLDOWN := 1.6
 const RECOVER_TIME := 0.9 # pause after a hit so you can get away
 
@@ -57,7 +58,7 @@ func _physics_process(delta: float) -> void:
 	var to_player := player.global_position - global_position
 	to_player.y = 0.0
 	var dist := to_player.length()
-	var detect := SMELL_RANGE if player.held != null else SIGHT_RANGE
+	var detect := SMELL_RANGE if player.carrying_food() else SIGHT_RANGE
 
 	if state == State.WANDER and not player.in_shop and dist < detect:
 		state = State.CHASE
@@ -69,7 +70,7 @@ func _physics_process(delta: float) -> void:
 	var speed := 0.0
 	if state == State.CHASE:
 		dir = to_player / maxf(dist, 0.001)
-		speed = CHASE_SPEED
+		speed = CHASE_SPEED if dist > STOP_RANGE else 0.0 # still faces you while standing off
 		if dist < HIT_RANGE and _cooldown <= 0.0 and _recover <= 0.0:
 			player.take_hit(global_position)
 			_cooldown = HIT_COOLDOWN
