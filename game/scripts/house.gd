@@ -6,7 +6,7 @@ var address := ""
 var porch_light: OmniLight3D
 var bulb_material: StandardMaterial3D
 var idle_energy := 0.0
-var chevron: Node3D ## floating marker over the porch, deliverable houses only
+var chevron: Node3D ## floating marker over the porch, shown while this house has the order
 
 const CHEVRON_POS := Vector3(0, 3.45, 4.6)
 var _t := 0.0

@@ -24,7 +24,7 @@ const CAR_COLORS := [
 	Color(0.35, 0.08, 0.08), Color(0.1, 0.15, 0.3), Color(0.3, 0.3, 0.32), Color(0.2, 0.25, 0.15),
 ]
 
-## Deliverable houses, nearest first.
+## All houses (every one can order); the first is the tutorial delivery.
 var houses: Array[House] = []
 var spawn_points: Array[Vector3] = []
 var _rng := RandomNumberGenerator.new()
@@ -92,20 +92,19 @@ func _build_shop_row() -> void:
 
 
 func _build_houses() -> void:
-	# Deliverable, nearest first. The first is always the tutorial delivery.
-	_house(Vector3(-20, 0, -20.5), Vector3.BACK, "12 Main St", true)
-	_house(Vector3(20.5, 0, -48), Vector3.RIGHT, "48 Elm Ave", true)
-	_house(Vector3(-20, 0, -98.5), Vector3.BACK, "7 Hollow Rd", true)
-	# Filler
-	_house(Vector3(-42, 0, -20.5), Vector3.BACK, "18 Main St", false)
-	_house(Vector3(-62, 0, -20.5), Vector3.BACK, "24 Main St", false)
-	_house(Vector3(4, 0, -20.5), Vector3.BACK, "6 Main St", false)
-	_house(Vector3(20.5, 0, -30), Vector3.RIGHT, "30 Elm Ave", false)
-	_house(Vector3(20.5, 0, -66), Vector3.RIGHT, "66 Elm Ave", false)
-	_house(Vector3(38.5, 0, -32), Vector3.LEFT, "31 Elm Ave", false)
-	_house(Vector3(38.5, 0, -60), Vector3.LEFT, "61 Elm Ave", false)
-	_house(Vector3(2, 0, -98.5), Vector3.BACK, "3 Hollow Rd", false)
-	_house(Vector3(-40, 0, -98.5), Vector3.BACK, "11 Hollow Rd", false)
+	# Every house can order. The first one listed is the tutorial delivery (nearest the shop).
+	_house(Vector3(-20, 0, -20.5), Vector3.BACK, "12 Main St")
+	_house(Vector3(20.5, 0, -48), Vector3.RIGHT, "48 Elm Ave")
+	_house(Vector3(-20, 0, -98.5), Vector3.BACK, "7 Hollow Rd")
+	_house(Vector3(-42, 0, -20.5), Vector3.BACK, "18 Main St")
+	_house(Vector3(-62, 0, -20.5), Vector3.BACK, "24 Main St")
+	_house(Vector3(4, 0, -20.5), Vector3.BACK, "6 Main St")
+	_house(Vector3(20.5, 0, -30), Vector3.RIGHT, "30 Elm Ave")
+	_house(Vector3(20.5, 0, -66), Vector3.RIGHT, "66 Elm Ave")
+	_house(Vector3(38.5, 0, -32), Vector3.LEFT, "31 Elm Ave")
+	_house(Vector3(38.5, 0, -60), Vector3.LEFT, "61 Elm Ave")
+	_house(Vector3(2, 0, -98.5), Vector3.BACK, "3 Hollow Rd")
+	_house(Vector3(-40, 0, -98.5), Vector3.BACK, "11 Hollow Rd")
 
 
 func _build_park() -> void:
@@ -207,7 +206,7 @@ func _build_bounds() -> void:
 
 # --- Builders ---------------------------------------------------------------
 
-func _house(root_pos: Vector3, facing: Vector3, address: String, deliverable: bool) -> void:
+func _house(root_pos: Vector3, facing: Vector3, address: String) -> void:
 	var h := House.new()
 	h.name = address.replace(" ", "")
 	h.address = address
@@ -264,16 +263,14 @@ func _house(root_pos: Vector3, facing: Vector3, address: String, deliverable: bo
 
 	h.porch_light = light
 	h.bulb_material = bulb_mat
-	if deliverable:
-		h.chevron = _chevron()
-		h.chevron.position = House.CHEVRON_POS
-		h.chevron.scale = Vector3.ONE * 1.3
-		h.add_child(h.chevron)
-	if not deliverable and _rng.randf() < 0.4:
-		h.idle_energy = 0.8
+	h.chevron = _chevron()
+	h.chevron.position = House.CHEVRON_POS
+	h.chevron.scale = Vector3.ONE * 1.3
+	h.add_child(h.chevron)
+	if _rng.randf() < 0.4:
+		h.idle_energy = 0.8 # some porches are lit anyway, so a lit porch alone isn't a giveaway
 	h.set_active(false)
-	if deliverable:
-		houses.append(h)
+	houses.append(h)
 
 
 ## Glowing "V" that floats over the active delivery's porch.

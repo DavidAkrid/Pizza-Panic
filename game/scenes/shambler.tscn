@@ -53,7 +53,7 @@ shape = SubResource("shape")
 [node name="Visual" type="Node3D" parent="."]
 
 [node name="Body" type="MeshInstance3D" parent="Visual"]
-transform = Transform3D(1, 0, 0, 0, 0.989, -0.149, 0, 0.149, 0.989, 0, 0.95, 0)
+transform = Transform3D(1, 0, 0, 0, 0.989, 0.149, 0, -0.149, 0.989, 0, 0.95, 0)
 mesh = SubResource("mesh_body")
 
 [node name="EyeL" type="MeshInstance3D" parent="Visual"]
