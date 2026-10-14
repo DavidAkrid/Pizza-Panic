@@ -6,7 +6,7 @@ const LAYER := 2 | 16 # interactable + props: the interact ray finds it, the pla
 const MASK := 1 | 8 | 16 # bounces off the world, monsters, and other props
 const CLINK := preload("res://audio/clink.wav")
 const THUD := preload("res://audio/thud.wav")
-const PIZZA_IMPACT_DAMAGE := 10.0
+const PIZZA_IMPACT_DAMAGE := Vector2(3.0, 15.0) # tap throw -> full charge
 const HIT_SPEED := 4.0 # minimum speed for a throw to count as a hit
 const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 0.6, 0.2), Color(0.85, 0.55, 0.1)]
 
@@ -15,7 +15,7 @@ const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 
 @export var swing_force := 5.0
 @export var swing_stun := 0.5
 @export var swing_range := 1.9
-@export var swing_cooldown := 0.4
+@export var swing_arc := 60.0 ## degrees either side of straight ahead
 @export var swing_hits_all := false ## big items hit everything in the arc, small ones only the closest
 @export_group("Thrown")
 @export var throw_force := 7.0
@@ -23,7 +23,7 @@ const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 
 
 var pizza: Pizza ## set when this is a thrown pizza
 var _live := false # thrown and hasn't hit anything yet
-var _power := 1.0 # charge multiplier from the throw
+var _charge := 0.0 # how charged the throw was, 0..1
 # Last few frames of velocity. Contacts can be reported a frame after the bounce already
 # slowed us down, so impacts are judged by the fastest recent sample.
 var _recent_velocities: Array[Vector3] = []
@@ -88,10 +88,10 @@ func held_visual() -> Node3D:
 	return v
 
 
-## `power` scales how hard it hits (1 = tap, higher = charged).
-func thrown(power: float) -> void:
+## `charge_amount` (0 = tap, 1 = full) scales how hard it hits and how much a pizza suffers.
+func thrown(charge_amount: float) -> void:
 	_live = true
-	_power = power
+	_charge = charge_amount
 	_recent_velocities.clear() # forget velocities from before it was picked up
 
 
@@ -125,10 +125,12 @@ func _on_body_entered(body: Node) -> void:
 	if body is Shambler:
 		var push := impact
 		push.y = 0.0
-		(body as Shambler).knock_back(push.normalized() * throw_force * _power, throw_stun * minf(_power, 2.0))
+		var force_mult := lerpf(1.0, Player.CHARGE_FORCE_MULT, _charge)
+		var stun_mult := lerpf(1.0, Player.CHARGE_STUN_MULT, _charge)
+		(body as Shambler).knock_back(push.normalized() * throw_force * force_mult, throw_stun * stun_mult)
 
 	if pizza:
-		pizza.condition -= PIZZA_IMPACT_DAMAGE
+		pizza.condition -= lerpf(PIZZA_IMPACT_DAMAGE.x, PIZZA_IMPACT_DAMAGE.y, _charge)
 		if pizza.condition <= 0.0:
 			Game.instance.hud.show_message("The pizza splattered!\nBack to the shop to make another.", 4.0)
 			queue_free()

@@ -2,7 +2,8 @@ class_name Hud
 extends CanvasLayer
 ## Minimal HUD built in code. Positions assume the 640x360 base viewport.
 
-var order_label: Label
+var order_label: Label ## top left: current delivery
+var hands_label: Label ## bottom right: fists or what you're holding
 var money_label: Label
 var prompt_label: Label
 var message_label: Label
@@ -12,7 +13,11 @@ var _message_time := 0.0
 
 
 func _ready() -> void:
-	order_label = _label(Vector2(8, 300), Vector2(360, 56), 10, HORIZONTAL_ALIGNMENT_LEFT)
+	order_label = _label(Vector2(8, 6), Vector2(190, 50), 10, HORIZONTAL_ALIGNMENT_LEFT)
+	order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hands_label = _label(Vector2(392, 296), Vector2(240, 56), 10, HORIZONTAL_ALIGNMENT_RIGHT)
+	hands_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	hands_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	money_label = _label(Vector2(432, 6), Vector2(200, 20), 14, HORIZONTAL_ALIGNMENT_RIGHT)
 	money_label.modulate = Color(0.6, 1, 0.6)
 	prompt_label = _label(Vector2(120, 205), Vector2(400, 20), 10, HORIZONTAL_ALIGNMENT_CENTER)

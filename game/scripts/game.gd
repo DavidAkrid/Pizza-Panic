@@ -197,18 +197,23 @@ func _refresh_hud() -> void:
 		lines.append("DELIVER TO: " + order.house.address)
 	else:
 		lines.append("No order. Head back to the shop.")
-	var hands := "empty"
-	if player.held:
-		hands = player.held.describe()
-	elif player.held_item:
-		hands = player.held_item.item_name
-	lines.append("HANDS: " + hands)
 	hud.order_label.text = "\n".join(lines)
+	if player.held:
+		hud.hands_label.text = player.held.describe()
+	elif player.held_item:
+		hud.hands_label.text = player.held_item.item_name
+	else:
+		hud.hands_label.text = "Fists"
 	hud.money_label.text = "$%d" % money
 	hud.set_stamina(player.stamina / Player.STAMINA_MAX)
 
 	var target = player.get_interact_target()
-	hud.prompt_label.text = target.get_prompt(player) if target else ""
+	if target:
+		hud.prompt_label.text = target.get_prompt(player)
+	elif not player.hands_free():
+		hud.prompt_label.text = "[E] Drop"
+	else:
+		hud.prompt_label.text = ""
 
 	var fwd := -player.global_transform.basis.z
 	hud.compass.heading = atan2(fwd.x, -fwd.z)

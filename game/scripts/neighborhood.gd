@@ -275,11 +275,32 @@ func _house(root_pos: Vector3, facing: Vector3, address: String, deliverable: bo
 
 	h.porch_light = light
 	h.bulb_material = bulb_mat
+	if deliverable:
+		h.chevron = _chevron()
+		h.chevron.position = House.CHEVRON_POS
+		h.chevron.scale = Vector3.ONE * 1.3
+		h.add_child(h.chevron)
 	if not deliverable and _rng.randf() < 0.4:
 		h.idle_energy = 0.8
 	h.set_active(false)
 	if deliverable:
 		houses.append(h)
+
+
+## Glowing "V" that floats over the active delivery's porch.
+func _chevron() -> CSGPolygon3D:
+	var c := CSGPolygon3D.new()
+	c.polygon = PackedVector2Array([
+		Vector2(-0.4, 0.35), Vector2(0, -0.15), Vector2(0.4, 0.35),
+		Vector2(0.22, 0.35), Vector2(0, 0.08), Vector2(-0.22, 0.35),
+	])
+	c.depth = 0.08
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1, 0.85, 0.4) # same gold as the compass marker
+	c.material = mat
+	c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return c
 
 
 func _tree(pos: Vector3) -> void:

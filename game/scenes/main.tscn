@@ -104,6 +104,9 @@ size = Vector3(0.95, 1, 1)
 [sub_resource type="BoxShape3D" id="shape_counter"]
 size = Vector3(0.95, 1, 1)
 
+[sub_resource type="BoxShape3D" id="shape_station_top"]
+size = Vector3(0.7, 0.4, 0.7)
+
 [sub_resource type="CylinderMesh" id="mesh_bowl_pepperoni"]
 material = SubResource("mat_pepperoni")
 top_radius = 0.32
@@ -319,6 +322,10 @@ mesh = SubResource("mesh_counter")
 [node name="Shape" type="CollisionShape3D" parent="Shop/Dough"]
 shape = SubResource("shape_counter")
 
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Dough"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
+
 [node name="Ball" type="MeshInstance3D" parent="Shop/Dough"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.58, 0)
 mesh = SubResource("mesh_dough")
@@ -343,6 +350,10 @@ mesh = SubResource("mesh_counter")
 
 [node name="Shape" type="CollisionShape3D" parent="Shop/Pepperoni"]
 shape = SubResource("shape_counter")
+
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Pepperoni"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
 
 [node name="Bowl" type="MeshInstance3D" parent="Shop/Pepperoni"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
@@ -369,6 +380,10 @@ mesh = SubResource("mesh_counter")
 [node name="Shape" type="CollisionShape3D" parent="Shop/Mushroom"]
 shape = SubResource("shape_counter")
 
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Mushroom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
+
 [node name="Bowl" type="MeshInstance3D" parent="Shop/Mushroom"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
 mesh = SubResource("mesh_bowl_mushroom")
@@ -394,6 +409,10 @@ mesh = SubResource("mesh_counter")
 [node name="Shape" type="CollisionShape3D" parent="Shop/Olive"]
 shape = SubResource("shape_counter")
 
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Olive"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
+
 [node name="Bowl" type="MeshInstance3D" parent="Shop/Olive"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
 mesh = SubResource("mesh_bowl_olive")
@@ -418,6 +437,10 @@ mesh = SubResource("mesh_counter")
 
 [node name="Shape" type="CollisionShape3D" parent="Shop/Pepper"]
 shape = SubResource("shape_counter")
+
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Pepper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
 
 [node name="Bowl" type="MeshInstance3D" parent="Shop/Pepper"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
@@ -479,6 +502,10 @@ mesh = SubResource("mesh_counter")
 
 [node name="Shape" type="CollisionShape3D" parent="Shop/Boxes"]
 shape = SubResource("shape_counter")
+
+[node name="TopShape" type="CollisionShape3D" parent="Shop/Boxes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_station_top")
 
 [node name="Stack" type="MeshInstance3D" parent="Shop/Boxes"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.68, 0)

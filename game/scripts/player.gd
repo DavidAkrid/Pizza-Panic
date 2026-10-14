@@ -29,9 +29,11 @@ const CHARGE_TIME := 1.0
 const CHARGE_FORCE_MULT := 2.6
 const CHARGE_STUN_MULT := 2.0
 const CHARGE_RANGE_BONUS := 0.4
+const CHARGE_BLEND := 0.12 # first part of a wind-up eases in from wherever the hand was
 # Base (tap) stats for the two things that aren't world items. Items carry their own (see Throwable).
-const PUNCH := {"range": 1.8, "force": 6.0, "stun": 0.6, "cooldown": 0.45, "hits_all": false}
-const PIZZA_SWING := {"range": 2.3, "force": 8.0, "stun": 1.0, "cooldown": 0.8, "hits_all": true}
+# "arc" = degrees either side of straight ahead that the attack can hit.
+const PUNCH := {"range": 1.8, "arc": 60.0, "force": 6.0, "stun": 0.6, "hits_all": false}
+const PIZZA_SWING := {"range": 2.3, "arc": 80.0, "force": 8.0, "stun": 1.0, "hits_all": true}
 const THROW_SPEED := Vector2(6.0, 16.0) # tap lob -> full charge
 
 # Fist poses (position + rotation in radians). Cosmetic: wind up out to the right with the
@@ -42,6 +44,13 @@ const FIST_WOUND := Vector3(0.34, -0.24, -0.32)
 const FIST_WOUND_ROT := Vector3(0.15, -0.5, -0.35)
 const FIST_STRIKE := Vector3(-0.02, -0.15, -0.75)
 const FIST_STRIKE_ROT := Vector3(-0.05, 0.35, 0.7)
+# Pizza swipe: flat sweep right -> left, offsets from the hand's rest pose (rotation in radians).
+const PIZZA_WOUND := Vector3(0.3, 0.02, 0.12)
+const PIZZA_WOUND_ROT := Vector3(0.0, -0.7, 0.0)
+const PIZZA_MID := Vector3(-0.2, 0.05, -0.22)
+const PIZZA_MID_ROT := Vector3(0.0, 0.2, 0.0)
+const PIZZA_STRIKE := Vector3(-0.65, 0.03, -0.05)
+const PIZZA_STRIKE_ROT := Vector3(0.0, 0.9, 0.0)
 const HAND_WOUND_THROW := Vector3(0.38, -0.02, -0.3) # cocked up by the shoulder
 const HAND_WOUND_THROW_ROT := Vector3(0.8, 0.0, 0.0) # tipped back, front edge up
 
@@ -60,7 +69,10 @@ var _bob := 0.0
 var _bob_offset := 0.0
 var _was_on_floor := true
 var _footsteps: AudioStreamPlayer
-var _attack_cd := 0.0
+var _attack_cd := 0.0 ## next attack allowed once the current strike lands
+var _anim_tween: Tween
+var _charge_from_hand: Transform3D # where the hand/fist were when this wind-up started,
+var _charge_from_fist: Transform3D # so interrupting a return blends instead of snapping
 var _fist: MeshInstance3D
 var _hand_rest: Transform3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -135,6 +147,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var target = get_interact_target()
 		if target:
 			target.interact(self)
+		else:
+			drop()
 
 
 ## Whatever station/door/item the crosshair is on, or null.
@@ -188,9 +202,10 @@ func discard_held() -> void:
 	refresh_held()
 
 
-func _throw(power: float) -> void:
+## Takes whatever is in your hands out as a world object, or null if hands are empty.
+func _release_held() -> Throwable:
 	if hands_free():
-		return
+		return null
 	var item: Throwable
 	if held:
 		item = Throwable.from_pizza(held)
@@ -200,13 +215,32 @@ func _throw(power: float) -> void:
 		held_item = null
 	refresh_held()
 	hand.transform = _hand_rest
-	var aim := -camera.global_transform.basis.z
 	get_tree().current_scene.add_child(item)
+	return item
+
+
+func _throw(charge_amount: float) -> void:
+	var item := _release_held()
+	if item == null:
+		return
+	var aim := -camera.global_transform.basis.z
 	item.global_position = camera.global_position + aim * 0.6 + Vector3.DOWN * 0.15
-	item.linear_velocity = aim * lerpf(THROW_SPEED.x, THROW_SPEED.y, power) + Vector3.UP * 1.5 + velocity * 0.5
+	item.linear_velocity = aim * lerpf(THROW_SPEED.x, THROW_SPEED.y, charge_amount) + Vector3.UP * 1.5 + velocity * 0.5
 	item.angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
-	item.thrown(lerpf(1.0, CHARGE_FORCE_MULT, power))
-	play_sfx(WHOOSH, lerpf(1.5, 1.1, power), lerpf(-12.0, -5.0, power))
+	item.thrown(charge_amount)
+	play_sfx(WHOOSH, lerpf(1.5, 1.1, charge_amount), lerpf(-12.0, -5.0, charge_amount))
+
+
+## Set it down at your feet. Gentle, so it can't hurt anything (including the pizza).
+func drop() -> void:
+	var item := _release_held()
+	if item == null:
+		return
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	item.global_position = global_position + forward.normalized() * 0.5 + Vector3.UP * 0.25
+	item.global_rotation = Vector3(0, rotation.y, 0)
+	item.linear_velocity = velocity * 0.5
 
 
 # --- Fighting -----------------------------------------------------------------
@@ -222,9 +256,12 @@ func _button_pressed(kind: Charging) -> void:
 		return
 	_charging = kind
 	charge = 0.0
+	if _anim_tween:
+		_anim_tween.kill() # cut the previous swing's return short
+	_charge_from_hand = hand.transform
+	_charge_from_fist = _fist.transform if _fist.visible else Transform3D(Basis.from_euler(FIST_REST_ROT), FIST_REST)
 	if kind == Charging.ATTACK and hands_free():
-		_fist.position = FIST_REST
-		_fist.rotation = FIST_REST_ROT
+		_fist.transform = _charge_from_fist
 		_fist.visible = true
 
 
@@ -253,8 +290,8 @@ func _weapon() -> Dictionary:
 		return PIZZA_SWING
 	if held_item:
 		return {
-			"range": held_item.swing_range, "force": held_item.swing_force, "stun": held_item.swing_stun,
-			"cooldown": held_item.swing_cooldown, "hits_all": held_item.swing_hits_all,
+			"range": held_item.swing_range, "arc": held_item.swing_arc, "force": held_item.swing_force, "stun": held_item.swing_stun,
+			"hits_all": held_item.swing_hits_all,
 		}
 	return PUNCH
 
@@ -262,11 +299,10 @@ func _weapon() -> Dictionary:
 func _attack(power: float) -> void:
 	var w := _weapon()
 	var fist := hands_free()
-	_attack_cd = w.cooldown
 	play_sfx(WHOOSH, lerpf(1.3 if fist else 0.95, 0.8, power), lerpf(-8.0, -2.0, power))
-	_animate_attack(fist)
+	_attack_cd = _animate_attack()
 
-	var targets := _monsters_in_front(w.range + CHARGE_RANGE_BONUS * power)
+	var targets := _monsters_in_front(w.range + CHARGE_RANGE_BONUS * power, w.arc)
 	if targets.is_empty():
 		return
 	if not w.hits_all: # small things only land on the closest monster
@@ -285,25 +321,41 @@ func _attack(power: float) -> void:
 		pizza_swung.emit()
 
 
-func _animate_attack(fist: bool) -> void:
-	var tw := create_tween()
-	if fist:
+## Plays the strike, then an interruptible return to rest. Returns how long the strike takes.
+func _animate_attack() -> float:
+	if _anim_tween:
+		_anim_tween.kill()
+	_anim_tween = create_tween()
+	var tw := _anim_tween
+	if hands_free():
 		_fist.visible = true
 		tw.tween_property(_fist, "transform", Transform3D(Basis.from_euler(FIST_STRIKE_ROT), FIST_STRIKE), 0.07)
 		tw.tween_property(_fist, "transform", Transform3D(Basis.from_euler(FIST_REST_ROT), FIST_REST), 0.16)
 		tw.tween_callback(_fist.hide)
-	else:
-		tw.tween_property(hand, "transform", _item_swing_pose(FIST_STRIKE, FIST_STRIKE_ROT), 0.08)
-		tw.tween_property(hand, "transform", _hand_rest, 0.22)
+		return 0.07
+	if held:
+		# Pizza: flat swipe through the middle and out to the left.
+		tw.tween_property(hand, "transform", _hand_pose(PIZZA_MID, PIZZA_MID_ROT), 0.05)
+		tw.tween_property(hand, "transform", _hand_pose(PIZZA_STRIKE, PIZZA_STRIKE_ROT), 0.06)
+		tw.tween_property(hand, "transform", _hand_rest, 0.25)
+		return 0.11
+	tw.tween_property(hand, "transform", _item_swing_pose(FIST_STRIKE, FIST_STRIKE_ROT), 0.08)
+	tw.tween_property(hand, "transform", _hand_rest, 0.22)
+	return 0.08
+
+
+## The hand's rest pose, moved by `offset` and turned by `rot` (radians).
+func _hand_pose(offset: Vector3, rot: Vector3) -> Transform3D:
+	return Transform3D(Basis.from_euler(rot) * _hand_rest.basis, _hand_rest.origin + offset)
 
 
 ## Held items follow the same arc as the fist: the fist's movement away from its rest pose
 ## is applied on top of the hand's rest pose.
 func _item_swing_pose(fist_pos: Vector3, fist_rot: Vector3) -> Transform3D:
-	return Transform3D(Basis.from_euler(fist_rot) * _hand_rest.basis, _hand_rest.origin + fist_pos - FIST_REST)
+	return _hand_pose(fist_pos - FIST_REST, fist_rot)
 
 
-func _monsters_in_front(reach: float) -> Array[Shambler]:
+func _monsters_in_front(reach: float, arc_degrees: float) -> Array[Shambler]:
 	var forward := -global_transform.basis.z
 	forward.y = 0.0
 	forward = forward.normalized()
@@ -312,7 +364,7 @@ func _monsters_in_front(reach: float) -> Array[Shambler]:
 		var to := m.global_position - global_position
 		to.y = 0.0
 		var d := to.length()
-		if d < reach and (d < 0.6 or forward.dot(to / d) > 0.5):
+		if d < reach and (d < 0.6 or forward.dot(to / d) > cos(deg_to_rad(arc_degrees))):
 			found.append(m)
 	return found
 
@@ -335,16 +387,21 @@ func _physics_process(delta: float) -> void:
 	if _charging != Charging.NONE:
 		charge = minf(charge + delta / CHARGE_TIME, 1.0)
 		var tremble := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * 0.008 * charge
+		var blend := clampf(charge / CHARGE_BLEND, 0.0, 1.0)
 		if _charging == Charging.ATTACK and hands_free():
-			_fist.position = FIST_REST.lerp(FIST_WOUND, charge) + tremble
-			_fist.rotation = FIST_REST_ROT.lerp(FIST_WOUND_ROT, charge)
-		elif _charging == Charging.ATTACK:
-			var pose := _item_swing_pose(FIST_REST.lerp(FIST_WOUND, charge), FIST_REST_ROT.lerp(FIST_WOUND_ROT, charge))
-			pose.origin += tremble
-			hand.transform = pose
+			var fist_pose := Transform3D(Basis.from_euler(FIST_REST_ROT.lerp(FIST_WOUND_ROT, charge)), FIST_REST.lerp(FIST_WOUND, charge))
+			_fist.transform = _charge_from_fist.interpolate_with(fist_pose, blend)
+			_fist.position += tremble
 		else:
-			var rot := Basis.from_euler(Vector3.ZERO.lerp(HAND_WOUND_THROW_ROT, charge))
-			hand.transform = Transform3D(rot * _hand_rest.basis, _hand_rest.origin.lerp(HAND_WOUND_THROW, charge) + tremble)
+			var pose: Transform3D
+			if _charging == Charging.ATTACK and held:
+				pose = _hand_pose(PIZZA_WOUND * charge, PIZZA_WOUND_ROT * charge)
+			elif _charging == Charging.ATTACK:
+				pose = _item_swing_pose(FIST_REST.lerp(FIST_WOUND, charge), FIST_REST_ROT.lerp(FIST_WOUND_ROT, charge))
+			else:
+				pose = _hand_pose((HAND_WOUND_THROW - _hand_rest.origin) * charge, HAND_WOUND_THROW_ROT * charge)
+			hand.transform = _charge_from_hand.interpolate_with(pose, blend)
+			hand.position += tremble
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
