@@ -1,0 +1,567 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="2_hud"]
+[ext_resource type="Script" path="res://scripts/ambience.gd" id="3_ambience"]
+[ext_resource type="Script" path="res://scripts/neighborhood.gd" id="4_hood"]
+[ext_resource type="Script" path="res://scripts/station.gd" id="5_station"]
+[ext_resource type="Script" path="res://scripts/oven.gd" id="6_oven"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="7_player"]
+
+[sub_resource type="Environment" id="env"]
+background_mode = 1
+background_color = Color(0.02, 0.025, 0.04, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.3, 0.35, 0.5, 1)
+ambient_light_energy = 0.5
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.03, 0.04, 0.06, 1)
+fog_density = 0.01
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.0
+volumetric_fog_albedo = Color(0.6, 0.65, 0.75, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_ext_wall"]
+albedo_color = Color(0.5, 0.18, 0.12, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="mat_int_wall"]
+albedo_color = Color(0.85, 0.7, 0.5, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.55, 0.3, 0.2, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="mat_trim"]
+albedo_color = Color(0.3, 0.18, 0.1, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="mat_glass"]
+transparency = 1
+albedo_color = Color(0.5, 0.7, 0.8, 0.2)
+roughness = 0.1
+
+[sub_resource type="StandardMaterial3D" id="mat_counter"]
+albedo_color = Color(0.75, 0.72, 0.68, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_booth"]
+albedo_color = Color(0.6, 0.1, 0.1, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_oven"]
+albedo_color = Color(0.2, 0.2, 0.22, 1)
+metallic = 0.6
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_fire"]
+albedo_color = Color(1, 0.45, 0.1, 1)
+emission_enabled = true
+emission = Color(1, 0.4, 0.1, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="StandardMaterial3D" id="mat_dough"]
+albedo_color = Color(0.93, 0.85, 0.65, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_cardboard"]
+albedo_color = Color(0.72, 0.55, 0.35, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_trash"]
+albedo_color = Color(0.2, 0.28, 0.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_chalk"]
+albedo_color = Color(0.08, 0.15, 0.1, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_shade"]
+albedo_color = Color(1, 0.75, 0.4, 1)
+emission_enabled = true
+emission = Color(1, 0.7, 0.35, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="StandardMaterial3D" id="mat_pepperoni"]
+albedo_color = Color(0.7, 0.12, 0.08, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_mushroom"]
+albedo_color = Color(0.78, 0.7, 0.55, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_olive"]
+albedo_color = Color(0.06, 0.06, 0.06, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_pepper"]
+albedo_color = Color(0.2, 0.6, 0.15, 1)
+
+[sub_resource type="BoxMesh" id="mesh_counter"]
+material = SubResource("mat_counter")
+size = Vector3(0.95, 1, 1)
+
+[sub_resource type="BoxShape3D" id="shape_counter"]
+size = Vector3(0.95, 1, 1)
+
+[sub_resource type="CylinderMesh" id="mesh_bowl_pepperoni"]
+material = SubResource("mat_pepperoni")
+top_radius = 0.32
+bottom_radius = 0.28
+height = 0.12
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="mesh_bowl_mushroom"]
+material = SubResource("mat_mushroom")
+top_radius = 0.32
+bottom_radius = 0.28
+height = 0.12
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="mesh_bowl_olive"]
+material = SubResource("mat_olive")
+top_radius = 0.32
+bottom_radius = 0.28
+height = 0.12
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="mesh_bowl_pepper"]
+material = SubResource("mat_pepper")
+top_radius = 0.32
+bottom_radius = 0.28
+height = 0.12
+radial_segments = 10
+
+[sub_resource type="SphereMesh" id="mesh_dough"]
+material = SubResource("mat_dough")
+radius = 0.25
+height = 0.2
+radial_segments = 10
+rings = 4
+
+[sub_resource type="BoxMesh" id="mesh_boxes"]
+material = SubResource("mat_cardboard")
+size = Vector3(0.5, 0.35, 0.5)
+
+[sub_resource type="BoxMesh" id="mesh_oven"]
+material = SubResource("mat_oven")
+size = Vector3(1.4, 1.6, 1.1)
+
+[sub_resource type="BoxShape3D" id="shape_oven"]
+size = Vector3(1.4, 1.6, 1.1)
+
+[sub_resource type="BoxMesh" id="mesh_oven_window"]
+material = SubResource("mat_fire")
+size = Vector3(0.9, 0.45, 0.04)
+
+[sub_resource type="CylinderMesh" id="mesh_trash"]
+material = SubResource("mat_trash")
+top_radius = 0.35
+bottom_radius = 0.3
+height = 0.9
+radial_segments = 8
+
+[sub_resource type="CylinderShape3D" id="shape_trash"]
+radius = 0.35
+height = 0.9
+
+[sub_resource type="BoxMesh" id="mesh_board"]
+material = SubResource("mat_chalk")
+size = Vector3(2.6, 1.3, 0.06)
+
+[sub_resource type="CylinderMesh" id="mesh_shade"]
+material = SubResource("mat_shade")
+top_radius = 0.08
+bottom_radius = 0.35
+height = 0.3
+radial_segments = 8
+
+[sub_resource type="BoxShape3D" id="shape_shop_area"]
+size = Vector3(9.8, 3.5, 7.8)
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Moon" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.574, -0.819, 0, 0.819, 0.574, 0, 20, 0)
+light_color = Color(0.55, 0.65, 0.9, 1)
+light_energy = 0.12
+shadow_enabled = true
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("2_hud")
+
+[node name="Ambience" type="Node" parent="."]
+script = ExtResource("3_ambience")
+
+[node name="Neighborhood" type="Node3D" parent="."]
+script = ExtResource("4_hood")
+
+[node name="Player" parent="." instance=ExtResource("7_player")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0.05, 3.5)
+
+[node name="Shop" type="Node3D" parent="."]
+
+[node name="Walls" type="CSGCombiner3D" parent="Shop"]
+use_collision = true
+
+[node name="Outer" type="CSGBox3D" parent="Shop/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 4)
+size = Vector3(10.4, 3.7, 8.4)
+material = SubResource("mat_ext_wall")
+
+[node name="Inner" type="CSGBox3D" parent="Shop/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 4)
+operation = 2
+size = Vector3(10, 3.5, 8)
+material = SubResource("mat_int_wall")
+
+[node name="Doorway" type="CSGBox3D" parent="Shop/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+operation = 2
+size = Vector3(1.6, 2.4, 1)
+material = SubResource("mat_trim")
+
+[node name="Window" type="CSGBox3D" parent="Shop/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 1.75, 0)
+operation = 2
+size = Vector3(2.4, 1.2, 1)
+material = SubResource("mat_trim")
+
+[node name="Glass" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 1.75, -0.1)
+use_collision = true
+size = Vector3(2.4, 1.2, 0.05)
+material = SubResource("mat_glass")
+
+[node name="Floor" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 4)
+size = Vector3(10, 0.02, 8)
+material = SubResource("mat_floor")
+
+[node name="Sign" type="Label3D" parent="Shop"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 3.0, -0.25)
+pixel_size = 0.01
+modulate = Color(1, 0.35, 0.2, 1)
+outline_modulate = Color(0.3, 0.02, 0, 1)
+text = "PIZZA PANIC"
+font_size = 64
+outline_size = 10
+
+[node name="SignGlow" type="OmniLight3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -1)
+light_color = Color(1, 0.3, 0.15, 1)
+light_energy = 1.5
+omni_range = 6.0
+
+[node name="LightMain" type="OmniLight3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.9, 3.5)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 1.4
+shadow_enabled = true
+omni_range = 9.0
+
+[node name="LightKitchenL" type="OmniLight3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 2.9, 6.3)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 1.0
+omni_range = 6.0
+
+[node name="LightKitchenR" type="OmniLight3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 2.9, 6.3)
+light_color = Color(1, 0.72, 0.42, 1)
+light_energy = 1.0
+omni_range = 6.0
+
+[node name="ShadeMain" type="MeshInstance3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.15, 3.5)
+mesh = SubResource("mesh_shade")
+
+[node name="ShadeL" type="MeshInstance3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 3.15, 6.3)
+mesh = SubResource("mesh_shade")
+
+[node name="ShadeR" type="MeshInstance3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 3.15, 6.3)
+mesh = SubResource("mesh_shade")
+
+[node name="CounterL" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.55, 0.5, 7.45)
+use_collision = true
+size = Vector3(0.9, 1, 1)
+material = SubResource("mat_counter")
+
+[node name="CounterR" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.25, 0.5, 7.45)
+use_collision = true
+size = Vector3(1.5, 1, 1)
+material = SubResource("mat_counter")
+
+[node name="Dough" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Dough"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Dough"]
+shape = SubResource("shape_counter")
+
+[node name="Ball" type="MeshInstance3D" parent="Shop/Dough"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.58, 0)
+mesh = SubResource("mesh_dough")
+
+[node name="Tag" type="Label3D" parent="Shop/Dough"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "DOUGH"
+font_size = 32
+outline_size = 6
+
+[node name="Pepperoni" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Pepperoni"
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Pepperoni"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Pepperoni"]
+shape = SubResource("shape_counter")
+
+[node name="Bowl" type="MeshInstance3D" parent="Shop/Pepperoni"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
+mesh = SubResource("mesh_bowl_pepperoni")
+
+[node name="Tag" type="Label3D" parent="Shop/Pepperoni"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "PEPPERONI"
+font_size = 32
+outline_size = 6
+
+[node name="Mushroom" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Mushroom"
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Mushroom"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Mushroom"]
+shape = SubResource("shape_counter")
+
+[node name="Bowl" type="MeshInstance3D" parent="Shop/Mushroom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
+mesh = SubResource("mesh_bowl_mushroom")
+
+[node name="Tag" type="Label3D" parent="Shop/Mushroom"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "MUSHROOM"
+font_size = 32
+outline_size = 6
+
+[node name="Olive" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Olive"
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Olive"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Olive"]
+shape = SubResource("shape_counter")
+
+[node name="Bowl" type="MeshInstance3D" parent="Shop/Olive"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
+mesh = SubResource("mesh_bowl_olive")
+
+[node name="Tag" type="Label3D" parent="Shop/Olive"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "OLIVE"
+font_size = 32
+outline_size = 6
+
+[node name="Pepper" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Pepper"
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Pepper"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Pepper"]
+shape = SubResource("shape_counter")
+
+[node name="Bowl" type="MeshInstance3D" parent="Shop/Pepper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.56, 0)
+mesh = SubResource("mesh_bowl_pepper")
+
+[node name="Tag" type="Label3D" parent="Shop/Pepper"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+pixel_size = 0.005
+billboard = 1
+text = "PEPPER"
+font_size = 32
+outline_size = 6
+
+[node name="Oven" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 0.8, 7.4)
+collision_layer = 3
+script = ExtResource("6_oven")
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Oven"]
+mesh = SubResource("mesh_oven")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Oven"]
+shape = SubResource("shape_oven")
+
+[node name="Window" type="MeshInstance3D" parent="Shop/Oven"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -0.56)
+mesh = SubResource("mesh_oven_window")
+
+[node name="Glow" type="OmniLight3D" parent="Shop/Oven"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -0.9)
+light_color = Color(1, 0.45, 0.15, 1)
+light_energy = 0.0
+omni_range = 3.0
+
+[node name="Tag" type="Label3D" parent="Shop/Oven"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+pixel_size = 0.005
+billboard = 1
+text = "OVEN"
+font_size = 32
+outline_size = 6
+
+[node name="Status" type="Label3D" parent="Shop/Oven"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+pixel_size = 0.006
+billboard = 1
+no_depth_test = true
+font_size = 36
+outline_size = 8
+
+[node name="Boxes" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 0.5, 7.45)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 2
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Boxes"]
+mesh = SubResource("mesh_counter")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Boxes"]
+shape = SubResource("shape_counter")
+
+[node name="Stack" type="MeshInstance3D" parent="Shop/Boxes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.68, 0)
+mesh = SubResource("mesh_boxes")
+
+[node name="Tag" type="Label3D" parent="Shop/Boxes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
+pixel_size = 0.005
+billboard = 1
+text = "BOXES"
+font_size = 32
+outline_size = 6
+
+[node name="Trash" type="StaticBody3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 0.45, 4.5)
+collision_layer = 3
+script = ExtResource("5_station")
+kind = 3
+
+[node name="Mesh" type="MeshInstance3D" parent="Shop/Trash"]
+mesh = SubResource("mesh_trash")
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/Trash"]
+shape = SubResource("shape_trash")
+
+[node name="Tag" type="Label3D" parent="Shop/Trash"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+pixel_size = 0.005
+billboard = 1
+text = "TRASH"
+font_size = 32
+outline_size = 6
+
+[node name="OrderBoard" type="MeshInstance3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, 7.95)
+mesh = SubResource("mesh_board")
+
+[node name="Text" type="Label3D" parent="Shop/OrderBoard"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, -0.05)
+pixel_size = 0.006
+modulate = Color(0.95, 0.95, 0.9, 1)
+text = "ORDER UP!"
+font_size = 40
+outline_size = 0
+
+[node name="TableL" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.4, 2.2)
+use_collision = true
+size = Vector3(1.4, 0.8, 1)
+material = SubResource("mat_trim")
+
+[node name="BenchL1" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.25, 1.2)
+use_collision = true
+size = Vector3(1.4, 0.5, 0.5)
+material = SubResource("mat_booth")
+
+[node name="BenchL2" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.25, 3.2)
+use_collision = true
+size = Vector3(1.4, 0.5, 0.5)
+material = SubResource("mat_booth")
+
+[node name="TableR" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.4, 2.2)
+use_collision = true
+size = Vector3(1.4, 0.8, 1)
+material = SubResource("mat_trim")
+
+[node name="BenchR1" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.25, 1.2)
+use_collision = true
+size = Vector3(1.4, 0.5, 0.5)
+material = SubResource("mat_booth")
+
+[node name="BenchR2" type="CSGBox3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.25, 3.2)
+use_collision = true
+size = Vector3(1.4, 0.5, 0.5)
+material = SubResource("mat_booth")
+
+[node name="ShopArea" type="Area3D" parent="Shop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 4)
+collision_layer = 0
+collision_mask = 4
+
+[node name="Shape" type="CollisionShape3D" parent="Shop/ShopArea"]
+shape = SubResource("shape_shop_area")
+
+[node name="Game" type="Node" parent="." node_paths=PackedStringArray("player", "hud", "neighborhood", "world_env", "ambience", "order_board")]
+script = ExtResource("1_game")
+player = NodePath("../Player")
+hud = NodePath("../Hud")
+neighborhood = NodePath("../Neighborhood")
+world_env = NodePath("../WorldEnvironment")
+ambience = NodePath("../Ambience")
+order_board = NodePath("../Shop/OrderBoard/Text")
+
+[connection signal="body_entered" from="Shop/ShopArea" to="Game" method="_on_shop_area_body_entered"]
+[connection signal="body_exited" from="Shop/ShopArea" to="Game" method="_on_shop_area_body_exited"]

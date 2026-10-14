@@ -1,0 +1,143 @@
+Title: Pizza Panic
+Version: 3
+Date: 2026-10-14
+Replaces: v2 (2D prototype design)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONCEPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A first-person co-op "friendslop" game. You and your friends run a pizza shop
+in a monster-infested neighborhood. You cook. You deliver. You survive.
+
+The game is the platform. The experience with your friends is the point.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PILLARS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. FRIENDS ARE THE FUN
+   Systems exist to create stories, chaos, and funny moments between players.
+   If a feature doesn't make friends yell, laugh, or help each other, question it.
+
+2. SILLY BUT SCARY
+   Real threat, never fully serious. Tone references:
+   Lethal Company, REPO, Content Warning.
+
+3. YOU HAVE A JOB TO DO
+   You're not outside to explore or fight. You're delivering a pizza.
+   The job is what pushes you out the door and into trouble.
+
+4. THE NEIGHBORHOOD GROWS WITH YOU
+   Outside starts as an unfamiliar, dangerous place where you're defenseless.
+   Over time you learn it, gear up, and it becomes your turf.
+   Navigation reference: Schedule I.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- First-person 3D
+- Online co-op (target: 1–4 players)
+- Engine: Godot 4 (GDScript)
+- Look: low-poly models, low-res / PSX-style rendering, heavy use of darkness,
+  fog, and sound. Cheap to produce, hides rough art, fits the tone.
+- Platform: PC (Steam), with an itch.io demo first
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WORLD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+One continuous neighborhood map. No loading screens between shop and street.
+
+The shop is the anchor: warm, lit, safe. Monsters can't come in.
+Outside is not one fixed mood. What it feels like depends on:
+  - Where you're going (close and familiar vs. far and unknown)
+  - What the job is (simple drop-off vs. something weird)
+  - What you have (on foot and empty-handed vs. geared up in a vehicle)
+  - Who's with you (alone vs. with friends)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORE LOOP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Orders come in at the shop
+2. Make the pizza
+3. Go out and deliver it
+4. Get back to the shop, get paid
+5. Spend money on upgrades, gear, vehicles
+6. Repeat, going further and handling harder jobs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SHOP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Safe space. Cozy, warm, a relief to come back to.
+- Cooking is simple and physical (grab, place, bake). It should be quick,
+  and a little messy with friends, not a deep cooking sim.
+- Pizza quality affects payout.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTSIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Navigate the neighborhood to the delivery address.
+- Monsters are out there and are drawn to you and your pizza.
+- Monsters can damage the pizza, knock you around, or take you out.
+- Early game: you're defenseless. Avoid, hide, run.
+- Late game: you have tools to deal with threats, and going out becomes
+  more fun than scary. Danger never fully goes away. Further and stranger
+  jobs keep raising the stakes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Earn money from deliveries. Spend it, find things, get stronger.
+
+Categories:
+- Weapons      (start improvised and silly: rolling pin, pizza cutter)
+- Vehicles     (on foot → skateboard → bike → delivery van, etc.)
+- Gadgets      (flashlights, tools that help you navigate or escape)
+- Upgrades     (to yourself and to the shop)
+
+Some things are bought; some are found out in the neighborhood.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CO-OP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Co-op is the target experience. Ideas to explore (not committed):
+- Players naturally split roles: someone cooks, someone delivers
+- Rescuing a friend who's stuck or downed outside
+- Carrying multiple pizzas together on a big order
+- Proximity voice chat (a core ingredient of the reference games)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEVELOPMENT PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — Single-player proof of concept (timebox: 2–3 weeks)
+  Purpose: find out if the loop and the atmosphere are fun.
+  This build is throwaway. Lessons, art, audio, and layouts carry over;
+  code mostly does not.
+
+  Milestone 1 scope:
+  - First-person movement
+  - Shop interior with warm lighting
+  - Simple pizza making
+  - Walk out the door into a dark neighborhood (no load)
+  - One delivery address
+  - One monster type that hunts you and damages the pizza
+  - Walk back, get paid (money is just a number on screen)
+
+  NOT in Phase 1: progression, weapons, vehicles, menus, saving.
+
+  Success = it's fun for 5 minutes and stepping outside feels different
+  from being in the shop.
+
+PHASE 2 — Multiplayer spike
+  Two players walking around the same shop together, online.
+  Prove the networking before building anything else on top.
+
+PHASE 3 — Rebuild on a multiplayer foundation
+  Rebuild Phase 1's loop as co-op, then start adding progression.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPEN QUESTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Session structure: endless shifts? nightly quota? (cf. Lethal Company)
+- What happens when you "die" or the pizza is destroyed?
+- Monster roster and behaviors
+- How the neighborhood expands or unlocks over time
+- Business model / price point
