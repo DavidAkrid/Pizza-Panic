@@ -26,6 +26,11 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   Connection code lives only in `scripts/net.gd` (autoload `Net`). Players are spawned through
   `PlayerSpawner.spawn(data)` + `World._make_player` so spawn info is identical on every machine
   (setting properties on the host before add_child does NOT reach a client-owned node).
+  Step 2 done: items (`scripts/item.gd`, spawned via `World.spawn_item` / `ItemSpawner`). Inventory
+  lives on the ITEMS (`holder` peer id + `holder_slot`), so `Player.inventory()` is the same on every
+  machine. Pickup/drop/throw are `rpc_id(1, ...)` requests the host validates. Clients keep items
+  frozen and display synced transforms; held items follow the holder's hand everywhere.
+  Six test soda cans spawn on the cooler until the stations step.
   Stations in the shop are decoration until the stations step; doors only knock (`CO-OP TODO`s).
   Dev test: host `<godot> --path game_coop -- --test=host --port=7778 --shots=<dir>` in the
   background, then `--test=client --port=7778`; checks live in `scripts/dev_test.gd`.

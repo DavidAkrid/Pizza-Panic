@@ -767,6 +767,12 @@ shape = SubResource("shape_shop_area")
 _spawnable_scenes = PackedStringArray("res://scenes/player.tscn")
 spawn_path = NodePath("../Players")
 
+[node name="Items" type="Node3D" parent="."]
+
+[node name="ItemSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/item.tscn")
+spawn_path = NodePath("../Items")
+
 [node name="MenuCamera" type="Camera3D" parent="."]
 transform = Transform3D(-1, 0, 0, 0, 0.966, 0.259, 0, 0.259, -0.966, 0, 2.2, 1.5)
 current = true

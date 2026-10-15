@@ -20,6 +20,8 @@ const FOOTSTEPS := [
 	preload("res://audio/footstep_1.wav"), preload("res://audio/footstep_2.wav"),
 	preload("res://audio/footstep_3.wav"), preload("res://audio/footstep_4.wav"),
 ]
+const PICKUP_SFX := preload("res://audio/pickup.wav")
+const WHOOSH_SFX := preload("res://audio/whoosh.wav")
 const COLORS := [Color(0.9, 0.3, 0.25), Color(0.25, 0.55, 0.9), Color(0.3, 0.8, 0.35), Color(0.9, 0.75, 0.2)]
 
 ## Join order (0 = host). Comes in with the spawn data (World._make_player). Drives color and name.
@@ -30,6 +32,10 @@ var flashlight_on := true:
 		flashlight_on = value
 		if is_node_ready():
 			flashlight.visible = value
+## Inventory size (upgrades will raise it). Synced so the host knows how much room you have.
+var slot_count := 2
+## Which slot is in your hand. Synced so everyone sees what you're holding.
+var active_slot := 0
 var stamina := STAMINA_MAX
 var in_shop := false # local player only; set by the world
 var _exhausted := false
@@ -105,10 +111,91 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("flashlight"):
 		flashlight_on = not flashlight_on
+	elif event.is_action_pressed("slot_next"):
+		select_slot(wrapi(active_slot + 1, 0, slot_count))
+	elif event.is_action_pressed("slot_prev"):
+		select_slot(wrapi(active_slot - 1, 0, slot_count))
+	elif event.is_action_pressed("throw"):
+		throw_held()
 	elif event.is_action_pressed("interact"):
 		var target = get_interact_target()
 		if target:
 			target.interact(self)
+		else:
+			drop_held()
+	else:
+		for i in 6:
+			if event.is_action_pressed("slot_%d" % (i + 1)):
+				select_slot(i)
+
+
+# --- Inventory --------------------------------------------------------------------
+# The items themselves record who holds them (see Item), so this reads the same everywhere.
+
+## This player's items by slot; null = empty slot.
+func inventory() -> Array:
+	var slots := []
+	slots.resize(slot_count)
+	var my_id := name.to_int()
+	for it: Item in get_tree().get_nodes_in_group("items"):
+		if it.holder == my_id and it.holder_slot < slot_count:
+			slots[it.holder_slot] = it
+	return slots
+
+
+## What's in the selected slot, or null (fists).
+func held_item() -> Item:
+	return inventory()[active_slot]
+
+
+func hands_free() -> bool:
+	return held_item() == null
+
+
+func has_room() -> bool:
+	return inventory().has(null)
+
+
+## The slot a new item should go in: the preferred one if empty, else the first empty, else -1.
+func free_slot(preferred: int) -> int:
+	var slots := inventory()
+	if preferred >= 0 and preferred < slots.size() and slots[preferred] == null:
+		return preferred
+	return slots.find(null)
+
+
+func select_slot(i: int) -> void:
+	if i >= 0 and i < slot_count:
+		active_slot = i
+
+
+## E with nothing in front of you: set the held item down at your feet.
+func drop_held() -> void:
+	var item := held_item()
+	if item == null:
+		return
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	item.request_drop.rpc_id(1, global_position + forward.normalized() * 0.5 + Vector3.UP * 0.25, rotation.y)
+
+
+func throw_held() -> void:
+	var item := held_item()
+	if item == null:
+		return
+	item.request_throw.rpc_id(1, -camera.global_transform.basis.z)
+	play_sfx(WHOOSH_SFX, 1.4, -10.0)
+
+
+## One-shot sound only this player hears (UI-ish feedback).
+func play_sfx(stream: AudioStream, pitch := 1.0, volume_db := 0.0) -> void:
+	var a := AudioStreamPlayer.new()
+	a.stream = stream
+	a.pitch_scale = pitch
+	a.volume_db = volume_db
+	a.finished.connect(a.queue_free)
+	add_child(a)
+	a.play()
 
 
 ## Whatever the crosshair is on that can be interacted with, or null.

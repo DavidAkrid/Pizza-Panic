@@ -6,14 +6,17 @@ extends Node3D
 ## Command line (after "--"): --host | --join=<address> | --test=<host|client> --shots=<dir>
 
 const PLAYER := preload("res://scenes/player.tscn")
+const ITEM := preload("res://scenes/item.tscn")
 const SHOP_DOOR := Vector3(0, 2.2, -0.5)
 
 static var instance: World
 
 var _next_slot := 0
+var _next_item := 0
 var _env_tween: Tween
 
 @onready var players: Node3D = $Players
+@onready var items: Node3D = $Items
 @onready var hud: Hud = $Hud
 @onready var ambience: Ambience = $Ambience
 @onready var world_env: WorldEnvironment = $WorldEnvironment
@@ -38,6 +41,7 @@ func _ready() -> void:
 	# Every machine builds spawned players with the same function + data, so who-is-who,
 	# color and starting spot are identical everywhere (see _make_player).
 	$PlayerSpawner.spawn_function = _make_player
+	$ItemSpawner.spawn_function = _make_item
 	$Shop/ShopArea.body_entered.connect(func(b: Node3D) -> void: _shop_contact(b, true))
 	$Shop/ShopArea.body_exited.connect(func(b: Node3D) -> void: _shop_contact(b, false))
 	hud.visible = false
@@ -62,6 +66,7 @@ func _process(_delta: float) -> void:
 	if me == null:
 		return
 	hud.set_stamina(me.stamina / Player.STAMINA_MAX)
+	hud.set_slots(me.inventory(), me.active_slot)
 	var fwd := -me.global_transform.basis.z
 	hud.compass.heading = atan2(fwd.x, -fwd.z)
 	if me.in_shop:
@@ -81,6 +86,7 @@ func host() -> void:
 		return
 	_enter_game()
 	_spawn_player(1)
+	_spawn_starting_items()
 	status.text = ""
 
 
@@ -122,6 +128,8 @@ func _on_peer_connected(id: int) -> void:
 
 func _on_peer_disconnected(id: int) -> void:
 	if multiplayer.is_server():
+		for it: Item in items.get_children():
+			it.release_from(id) # don't let a leaving player take items with them
 		var p := player(id)
 		if p:
 			p.queue_free()
@@ -140,6 +148,32 @@ func _make_player(data: Dictionary) -> Player:
 	p.position = Vector3(-1.5 + (p.slot % 4) * 1.0, 0.05, 3.5)
 	p.rotation.y = PI # face the counter
 	return p
+
+
+# --- Items --------------------------------------------------------------------------
+
+## Host only. Creates an item on every machine. `info` carries kind-specific look data.
+func spawn_item(kind: String, at: Vector3, info := {}) -> Item:
+	_next_item += 1
+	return $ItemSpawner.spawn({"name": "item_%d" % _next_item, "kind": kind, "pos": at, "info": info})
+
+
+func _make_item(data: Dictionary) -> Item:
+	var it: Item = ITEM.instantiate()
+	it.name = data.name
+	it.kind = data.kind
+	it.spawn_info = data.info
+	it.position = data.pos
+	return it
+
+
+## Test props until the stations step: six soda cans on the cooler, like the POC.
+func _spawn_starting_items() -> void:
+	var i := 0
+	for x in [4.35, 4.65]:
+		for z in [4.2, 4.6, 5.0]:
+			spawn_item("soda", Vector3(x, 0.97, z), {"color": i})
+			i += 1
 
 
 # --- Inside vs. outside (this machine only) -------------------------------------
