@@ -159,6 +159,8 @@ func _attack(power: float) -> void:
 		# Monsters plug in here (monsters step).
 	player.play_sfx(THUD, lerpf(1.1, 0.75, power), lerpf(-3.0, 3.0, power))
 	player.shake(lerpf(0.15, 0.45, power))
+	if item:
+		item.request_swung.rpc_id(1) # pizzas get hurt by being used as a weapon
 
 
 func _throw(power: float) -> void:

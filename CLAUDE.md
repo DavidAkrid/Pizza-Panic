@@ -31,7 +31,12 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   machine. Pickup/drop/throw are `rpc_id(1, ...)` requests the host validates. Clients keep items
   frozen and display synced transforms; held items follow the holder's hand everywhere.
   Six test soda cans spawn on the cooler until the stations step.
-  Stations in the shop are decoration until the stations step; doors only knock (`CO-OP TODO`s).
+  Step 4 done: stations. `StationBase` (rpc to host -> `_use(player, held, slot)`), `station.gd`
+  (dough/toppings/boxes/trash/cooler/freezer), `cook_station.gd` (oven + fryer; host owns what's
+  inside, every machine counts down locally from `_sync`). Pizzas/sticks are Items whose synced
+  `state` dict holds toppings/stage/bake/condition or fry result; holder == Item.IN_STATION while
+  cooking. Host-side pizza damage (`Item.damage_pizza`) sends feedback to the holder. Cold decay
+  runs on the host in `World._tick_cold_pizzas`. Doors only knock until the orders step.
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever
   owns the target: players -> `Player.receive_shove` on their machine (friendly fire = shove only,
   never damage), loose items -> host `Item.request_knock`, thrown items detect hits on the host.

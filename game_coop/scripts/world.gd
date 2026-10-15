@@ -8,11 +8,14 @@ extends Node3D
 const PLAYER := preload("res://scenes/player.tscn")
 const ITEM := preload("res://scenes/item.tscn")
 const SHOP_DOOR := Vector3(0, 2.2, -0.5)
+const COLD_DAMAGE := 1.0
+const COLD_INTERVAL := 3.0
 
 static var instance: World
 
 var _next_slot := 0
 var _next_item := 0
+var _cold_timer := 0.0
 var _env_tween: Tween
 
 @onready var players: Node3D = $Players
@@ -61,7 +64,9 @@ func _ready() -> void:
 		DevTest.run(self, test, _arg("--shots="))
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if multiplayer.is_server() and multiplayer.has_multiplayer_peer():
+		_tick_cold_pizzas(delta)
 	var me := local_player()
 	if me == null:
 		return
@@ -86,7 +91,6 @@ func host() -> void:
 		return
 	_enter_game()
 	_spawn_player(1)
-	_spawn_starting_items()
 	status.text = ""
 
 
@@ -124,6 +128,8 @@ func _back_to_menu(reason: String) -> void:
 func _on_peer_connected(id: int) -> void:
 	if multiplayer.is_server():
 		_spawn_player(id)
+		for station in get_tree().get_nodes_in_group("cook_stations"):
+			station.resync_to(id) # show them anything already in the oven/fryer
 
 
 func _on_peer_disconnected(id: int) -> void:
@@ -167,13 +173,24 @@ func _make_item(data: Dictionary) -> Item:
 	return it
 
 
-## Test props until the stations step: six soda cans on the cooler, like the POC.
-func _spawn_starting_items() -> void:
-	var i := 0
-	for x in [4.35, 4.65]:
-		for z in [4.2, 4.6, 5.0]:
-			spawn_item("soda", Vector3(x, 0.97, z), {"color": i})
-			i += 1
+## Host only: an unboxed pizza carried outside the shop goes cold, 1% every few seconds.
+## (A nudge to box it before heading out.)
+func _tick_cold_pizzas(delta: float) -> void:
+	_cold_timer += delta
+	if _cold_timer < COLD_INTERVAL:
+		return
+	_cold_timer -= COLD_INTERVAL
+	for it: Item in items.get_children():
+		if it.kind != "pizza" or it.holder <= 0 or it.pizza().stage == Pizza.Stage.BOXED:
+			continue
+		var p := player(it.holder)
+		if p and not is_in_shop(p.global_position):
+			it.damage_pizza(COLD_DAMAGE) # quiet: just the hitmarker and flash
+
+
+## Shop footprint (plus a buffer outside the door). Used by the host, e.g. monsters never enter.
+static func is_in_shop(pos: Vector3) -> bool:
+	return pos.x > -5.6 and pos.x < 5.6 and pos.z > -0.8 and pos.z < 8.6
 
 
 # --- Inside vs. outside (this machine only) -------------------------------------

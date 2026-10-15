@@ -26,6 +26,17 @@ var bake_label := ""
 var condition := 100.0
 
 
+## Builds a Pizza from an Item's synced state dictionary (missing keys = a fresh raw pizza).
+static func from_state(s: Dictionary) -> Pizza:
+	var p := Pizza.new()
+	p.toppings.assign(s.get("toppings", []))
+	p.stage = int(s.get("stage", Stage.RAW)) as Stage
+	p.bake_quality = s.get("bake_quality", 0.0)
+	p.bake_label = s.get("bake_label", "")
+	p.condition = s.get("condition", 100.0)
+	return p
+
+
 func describe() -> String:
 	var what := ""
 	match stage:

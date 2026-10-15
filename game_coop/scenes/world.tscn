@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" path="res://scripts/world.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="2_hud"]
+[ext_resource type="Script" path="res://scripts/station.gd" id="5_station"]
+[ext_resource type="Script" path="res://scripts/cook_station.gd" id="6_cook"]
 [ext_resource type="Script" path="res://scripts/ambience.gd" id="3_ambience"]
 [ext_resource type="Script" path="res://scripts/neighborhood.gd" id="4_hood"]
 
@@ -353,6 +355,8 @@ material = SubResource("mat_counter")
 [node name="Fryer" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.25, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("6_cook")
+mode = "fryer"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Fryer"]
 mesh = SubResource("mesh_fryer")
@@ -397,6 +401,8 @@ outline_size = 8
 [node name="Dough" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 0
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Dough"]
 mesh = SubResource("mesh_counter")
@@ -423,6 +429,9 @@ outline_size = 6
 [node name="Pepperoni" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Pepperoni"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Pepperoni"]
 mesh = SubResource("mesh_counter")
@@ -449,6 +458,9 @@ outline_size = 6
 [node name="Mushroom" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Mushroom"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Mushroom"]
 mesh = SubResource("mesh_counter")
@@ -475,6 +487,9 @@ outline_size = 6
 [node name="Olive" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Olive"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Olive"]
 mesh = SubResource("mesh_counter")
@@ -501,6 +516,9 @@ outline_size = 6
 [node name="Pepper" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 1
+topping = "Pepper"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Pepper"]
 mesh = SubResource("mesh_counter")
@@ -527,6 +545,8 @@ outline_size = 6
 [node name="Oven" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 0.8, 7.4)
 collision_layer = 3
+script = ExtResource("6_cook")
+mode = "oven"
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Oven"]
 mesh = SubResource("mesh_oven")
@@ -563,6 +583,8 @@ outline_size = 8
 [node name="Boxes" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 0.5, 7.45)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 2
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Boxes"]
 mesh = SubResource("mesh_counter")
@@ -589,6 +611,8 @@ outline_size = 6
 [node name="Trash" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 0.45, 4.5)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 3
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Trash"]
 mesh = SubResource("mesh_trash")
@@ -655,6 +679,8 @@ material = SubResource("mat_booth")
 [node name="Freezer" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 0.9, 6.05)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 5
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Freezer"]
 mesh = SubResource("mesh_freezer")
@@ -673,6 +699,8 @@ outline_size = 6
 [node name="Cooler" type="StaticBody3D" parent="Shop"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 0.45, 4.6)
 collision_layer = 3
+script = ExtResource("5_station")
+kind = 4
 
 [node name="Mesh" type="MeshInstance3D" parent="Shop/Cooler"]
 mesh = SubResource("mesh_cooler")
