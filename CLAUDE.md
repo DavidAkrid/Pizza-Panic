@@ -11,6 +11,22 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
 - **Scope note:** Phase 1 has grown past the original Milestone 1 (upgrades, inventory, etc.).
   Call out further scope creep; the real goal is "is the loop fun?".
 
+## Co-op status (branch `coop`)
+
+- Phase 1 is DONE and tagged `poc-final`. `game/` is the finished single-player proof of concept:
+  keep it as a reference, don't build co-op on top of it.
+- Phase 2 (networking test) lives in `net_spike/` and WORKS: host/join over ENet, players see
+  each other, host-owned soda cans can be picked up and thrown. See `net_spike/README.txt`.
+- Networking pattern for the rebuild: host owns world state (props, stations, orders, money,
+  monsters); each player owns their own movement (MultiplayerSynchronizer); clients change the
+  world only via `rpc_id(1, ...)` requests that the host validates. Direct ENet for development,
+  Steam lobbies later (swap the MultiplayerPeer).
+- Next: Phase 3 = rebuild in a new `game_coop/` folder, porting systems in this order:
+  world -> players -> items/inventory -> stations -> orders/delivery -> monsters -> upgrades -> polish.
+  Reuse visuals, map builder, sounds, tuning numbers from `game/`.
+- Two-instance automated test: `<godot> --path net_spike -- --test=host --shots=<dir>` in the
+  background, then the same with `--test=client`; compare the SHOT lines.
+
 ## Running it
 
 - Engine: Godot **4.7.2**, GDScript, Forward+, **Jolt** physics. Project lives in `game/`.

@@ -1,0 +1,113 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/net.gd" id="1_net"]
+[ext_resource type="PackedScene" path="res://scenes/can.tscn" id="2_can"]
+
+[sub_resource type="Environment" id="env"]
+background_mode = 1
+background_color = Color(0.1, 0.12, 0.18, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.6, 0.6, 0.7, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.55, 0.3, 0.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.85, 0.7, 0.5, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_table"]
+albedo_color = Color(0.3, 0.18, 0.1, 1)
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_net")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.574, 0.819, 0, -0.819, 0.574, 0, 10, 0)
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="Lamp" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 2)
+light_color = Color(1, 0.75, 0.45, 1)
+light_energy = 1.5
+omni_range = 10.0
+
+[node name="Room" type="CSGCombiner3D" parent="."]
+use_collision = true
+
+[node name="Floor" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 2)
+size = Vector3(12, 1, 12)
+material = SubResource("mat_floor")
+
+[node name="WallBack" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -4.1)
+size = Vector3(12, 3, 0.2)
+material = SubResource("mat_wall")
+
+[node name="WallLeft" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.1, 1.5, 2)
+size = Vector3(0.2, 3, 12)
+material = SubResource("mat_wall")
+
+[node name="WallRight" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.1, 1.5, 2)
+size = Vector3(0.2, 3, 12)
+material = SubResource("mat_wall")
+
+[node name="WallFront" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 8.1)
+size = Vector3(12, 3, 0.2)
+material = SubResource("mat_wall")
+
+[node name="Table" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+size = Vector3(1.6, 1, 0.9)
+material = SubResource("mat_table")
+
+[node name="Can" parent="." instance=ExtResource("2_can")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 1.08, 0)
+
+[node name="Can2" parent="." instance=ExtResource("2_can")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 1.08, 0)
+
+[node name="Players" type="Node3D" parent="."]
+
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/player.tscn")
+spawn_path = NodePath("../Players")
+
+[node name="LobbyCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.94, 0.342, 0, -0.342, 0.94, 0, 2.5, 7)
+current = true
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Lobby" type="VBoxContainer" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 160.0
+
+[node name="Title" type="Label" parent="UI/Lobby"]
+text = "Pizza Panic - co-op test"
+
+[node name="Host" type="Button" parent="UI/Lobby"]
+text = "Host"
+
+[node name="IP" type="LineEdit" parent="UI/Lobby"]
+placeholder_text = "Host IP (blank = this PC)"
+
+[node name="Join" type="Button" parent="UI/Lobby"]
+text = "Join"
+
+[node name="Status" type="Label" parent="UI"]
+offset_left = 8.0
+offset_top = 338.0
+offset_right = 632.0
+offset_bottom = 356.0
