@@ -162,6 +162,25 @@ func held_item() -> Item:
 	return inventory()[active_slot]
 
 
+## Any pizza or fried food on you lets monsters smell you from further away.
+func carrying_food() -> bool:
+	for it in inventory():
+		if it and (it.kind == "pizza" or it.kind == "sticks"):
+			return true
+	return false
+
+
+## The pizza a monster bite hits: the one in your hand, else any in your bag. Null if none.
+func exposed_pizza() -> Item:
+	var held := held_item()
+	if held and held.kind == "pizza":
+		return held
+	for it in inventory():
+		if it and it.kind == "pizza":
+			return it
+	return null
+
+
 func hands_free() -> bool:
 	return held_item() == null
 

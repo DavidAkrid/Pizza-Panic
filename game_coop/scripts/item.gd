@@ -404,7 +404,8 @@ func _on_body_entered(body: Node) -> void:
 	var stun: float = stats[1] * lerpf(1.0, PlayerCombat.CHARGE_STUN_MULT, _charge)
 	if body is Player:
 		body.receive_shove.rpc_id(body.name.to_int(), push * PlayerCombat.PLAYER_SHOVE_MULT, stun * 0.5)
-	# Monsters plug in here (monsters step).
+	elif body is Shambler:
+		body.knock_back(push, stun)
 	damage_pizza(lerpf(PIZZA_THROW_DAMAGE.x, PIZZA_THROW_DAMAGE.y, _charge))
 
 

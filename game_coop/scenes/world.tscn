@@ -810,6 +810,12 @@ spawn_path = NodePath("../Players")
 _spawnable_scenes = PackedStringArray("res://scenes/item.tscn")
 spawn_path = NodePath("../Items")
 
+[node name="Monsters" type="Node3D" parent="."]
+
+[node name="MonsterSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/shambler.tscn")
+spawn_path = NodePath("../Monsters")
+
 [node name="MenuCamera" type="Camera3D" parent="."]
 transform = Transform3D(-1, 0, 0, 0, 0.966, 0.259, 0, 0.259, -0.966, 0, 2.2, 1.5)
 current = true

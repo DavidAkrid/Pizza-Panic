@@ -43,6 +43,13 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   (`_play_visit` RPC), then `GameState.deliver` takes matching items from EVERYONE within 4.5m
   of the door. House doors are named "Door" and customers are seeded by address so RPC paths and
   looks match on every machine.
+  Step 6 done: monsters (`scripts/shambler.gd`, spawned by the host via `MonsterSpawner`). The host
+  runs AI/physics; `target_id` + `staggered` are synced. Targets = closest player outside the shop
+  who smells of food (14m) or is close (6m). Bites shove the victim on their machine and the host
+  damages their exposed pizza (34%). Player hits arrive via `Shambler.request_hit`; thrown items
+  call `knock_back` on the host. Heartbeat plays only for the hunted player.
+  Dev tests: never let the host's checks finish before the client's (the client reloads to the
+  menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever
   owns the target: players -> `Player.receive_shove` on their machine (friendly fire = shove only,
   never damage), loose items -> host `Item.request_knock`, thrown items detect hits on the host.

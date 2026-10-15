@@ -156,7 +156,8 @@ func _attack(power: float) -> void:
 			t.receive_shove.rpc_id(t.name.to_int(), away * force * PLAYER_SHOVE_MULT, stun * 0.5)
 		elif t is Item:
 			t.request_knock.rpc_id(1, away * force * PROP_KNOCK_MULT + Vector3.UP * 1.5)
-		# Monsters plug in here (monsters step).
+		elif t is Shambler:
+			t.request_hit.rpc_id(1, away * force, stun) # monsters get the full force
 	player.play_sfx(THUD, lerpf(1.1, 0.75, power), lerpf(-3.0, 3.0, power))
 	player.shake(lerpf(0.15, 0.45, power))
 	if item:
@@ -185,6 +186,8 @@ func _targets_in_front(reach: float, arc_degrees: float) -> Array[Node3D]:
 	for it: Item in player.get_tree().get_nodes_in_group("items"):
 		if it.holder == 0:
 			candidates.append(it)
+	for m: Shambler in player.get_tree().get_nodes_in_group("monster"):
+		candidates.append(m)
 	var found: Array[Node3D] = []
 	var min_dot := cos(deg_to_rad(arc_degrees))
 	for c in candidates:

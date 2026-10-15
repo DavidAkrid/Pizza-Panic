@@ -7,6 +7,7 @@ extends Node3D
 
 const PLAYER := preload("res://scenes/player.tscn")
 const ITEM := preload("res://scenes/item.tscn")
+const SHAMBLER := preload("res://scenes/shambler.tscn")
 const SHOP_DOOR := Vector3(0, 2.2, -0.5)
 const COLD_DAMAGE := 1.0
 const COLD_INTERVAL := 3.0
@@ -16,6 +17,7 @@ static var instance: World
 var _next_slot := 0
 var _next_item := 0
 var _cold_timer := 0.0
+var freeze_monsters := false # dev tests: hold monsters still
 var _env_tween: Tween
 
 @onready var players: Node3D = $Players
@@ -45,6 +47,7 @@ func _ready() -> void:
 	# color and starting spot are identical everywhere (see _make_player).
 	$PlayerSpawner.spawn_function = _make_player
 	$ItemSpawner.spawn_function = _make_item
+	$MonsterSpawner.spawn_function = _make_monster
 	$Shop/ShopArea.body_entered.connect(func(b: Node3D) -> void: _shop_contact(b, true))
 	$Shop/ShopArea.body_exited.connect(func(b: Node3D) -> void: _shop_contact(b, false))
 	hud.visible = false
@@ -73,6 +76,14 @@ func _process(delta: float) -> void:
 	hud.set_stamina(me.stamina / Player.STAMINA_MAX)
 	hud.set_slots(me.inventory(), me.active_slot)
 	_refresh_order_hud(me)
+	# Heartbeat only for whoever is actually being chased.
+	var my_id := me.name.to_int()
+	var hunted := false
+	for m: Shambler in $Monsters.get_children():
+		if m.target_id == my_id:
+			hunted = true
+			break
+	ambience.chasing = hunted
 
 
 ## Order info, team money and the compass marker, from the host-owned GameState.
@@ -110,6 +121,7 @@ func host() -> void:
 	_enter_game()
 	_spawn_player(1)
 	GameState.instance.start()
+	_spawn_monsters.call_deferred()
 	status.text = ""
 
 
@@ -188,6 +200,22 @@ func _make_item(data: Dictionary) -> Item:
 	it.spawn_info = data.info
 	it.position = data.pos
 	return it
+
+
+# --- Monsters ---------------------------------------------------------------------------
+
+## Host only. Monsters spawn once at their spawn points and roam for the whole session.
+func _spawn_monsters() -> void:
+	var hood := get_node("Neighborhood") as Neighborhood
+	for i in hood.spawn_points.size():
+		$MonsterSpawner.spawn({"name": "monster_%d" % i, "pos": hood.spawn_points[i]})
+
+
+func _make_monster(data: Dictionary) -> Shambler:
+	var m: Shambler = SHAMBLER.instantiate()
+	m.name = data.name
+	m.position = data.pos
+	return m
 
 
 ## Host only: an unboxed pizza carried outside the shop goes cold, 1% every few seconds.
