@@ -228,6 +228,7 @@ func _house(root_pos: Vector3, facing: Vector3, address: String) -> void:
 		_window(Vector3(wx, 2.0, 3.52), Vector3(1.4, 1.1, 0.06), 0.25, h)
 
 	var door := HouseDoor.new()
+	door.name = "Door" # fixed name: knock RPCs must find the same node on every machine
 	door.house = h
 	door.position = Vector3(0, 1.05, 3.56)
 	door.build(_mat(Color(0.25, 0.12, 0.08)))

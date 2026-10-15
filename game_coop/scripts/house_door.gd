@@ -89,39 +89,65 @@ func _process(delta: float) -> void:
 	_head.global_basis = _head.global_basis.slerp(target, clampf(10.0 * delta, 0.0, 1.0))
 
 
-# CO-OP TODO (orders step): prompts/deliveries come back once orders are host-owned.
-func get_prompt(_p: Player) -> String:
-	return "" if _busy else "[E] Knock"
+func get_prompt(p: Player) -> String:
+	return "" if _busy else GameState.instance.door_prompt(house, p)
 
 
-func interact(p: Player) -> void:
-	if _busy:
+func interact(_p: Player) -> void:
+	if not _busy:
+		_request_knock.rpc_id(1)
+
+
+## Host: someone knocked. Everyone hears it; at the order house the customer comes to the door.
+@rpc("any_peer", "call_local", "reliable")
+func _request_knock() -> void:
+	if not multiplayer.is_server() or _busy:
 		return
-	_busy = true
-	_audio.play()
+	var id := multiplayer.get_remote_sender_id()
+	var knocker := World.instance.player(id if id != 0 else 1)
+	if knocker == null or knocker.global_position.distance_to(global_position) > 3.5:
+		return
+	_play_knock.rpc()
 	await get_tree().create_timer(0.55).timeout
-	# CO-OP TODO (orders step): open up and _visit() at the order house, synced to everyone.
-	_busy = false
-
-
-## Door cracks open, customer leans out around the frame and grabs the order straight away,
-## hangs around a random moment, ducks back in. Speed and linger time vary per visit.
-func _visit(p: Player) -> void:
+	if not GameState.instance.is_order_house(house):
+		_set_idle.rpc() # nobody home (as far as you know)
+		return
+	# Pick the visit's personality once, here, so every machine plays the same visit.
 	var pace := randf_range(0.75, 1.3) # >1 = snappier
 	var linger := randf_range(0.4, 1.6)
 	var lean := PEEK_LEAN + randf_range(-0.06, 0.06)
+	var flap := randf_range(12.0, 17.0)
+	_play_visit.rpc(pace, linger, lean, flap)
+	await get_tree().create_timer(0.2 / pace).timeout # as soon as they're in view...
+	GameState.instance.deliver(house, global_position) # ...they grab the order
+
+
+@rpc("authority", "call_local", "reliable")
+func _play_knock() -> void:
+	_busy = true
+	_audio.play()
+
+
+@rpc("authority", "call_local", "reliable")
+func _set_idle() -> void:
+	_busy = false
+
+
+## Door cracks open, customer leans out around the frame (and looks at YOU, on your screen),
+## hangs around a moment, ducks back in. The host picks the timing so it matches everywhere.
+@rpc("authority", "call_local", "reliable")
+func _play_visit(pace: float, linger: float, lean: float, flap_speed: float) -> void:
+	_busy = true
 	_customer.rotation.z = 0.0
 	_head.rotation = Vector3.ZERO
 	_flap_t = 0.0
-	_flap_speed = randf_range(12.0, 17.0)
+	_flap_speed = flap_speed
 	_peek_pivot.rotation.y = PEEK_HIDDEN
 	_peek_pivot.visible = true
 	var tw := create_tween().set_parallel()
 	tw.tween_property(_hinge, "rotation:y", DOOR_OPEN, 0.18 / pace).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	tw.tween_property(_peek_pivot, "rotation:y", 0.0, 0.3 / pace).set_delay(0.08 / pace).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.tween_property(_customer, "rotation:z", lean, 0.3 / pace).set_delay(0.08 / pace).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	await get_tree().create_timer(0.2 / pace).timeout # as soon as they're in view
-	# CO-OP TODO (orders step): hand over the order here.
 	await tw.finished
 	await get_tree().create_timer(linger).timeout
 	tw = create_tween().set_parallel()
@@ -130,15 +156,19 @@ func _visit(p: Player) -> void:
 	tw.tween_property(_hinge, "rotation:y", 0.0, 0.2 / pace).set_delay(0.12 / pace).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	await tw.finished
 	_peek_pivot.visible = false
+	_busy = false
 
 
 ## A simple low-poly person, feet at the origin, facing +Z (out the front door).
 func _build_customer() -> Node3D:
 	var root := Node3D.new()
+	# Seeded by address so every machine sees the same person at this house.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = house.address.hash() if house else 0
 	var shirt := StandardMaterial3D.new()
-	shirt.albedo_color = SHIRTS.pick_random()
+	shirt.albedo_color = SHIRTS[rng.randi() % SHIRTS.size()]
 	var skin := StandardMaterial3D.new()
-	skin.albedo_color = SKIN_TONES.pick_random()
+	skin.albedo_color = SKIN_TONES[rng.randi() % SKIN_TONES.size()]
 	var dark := StandardMaterial3D.new()
 	dark.albedo_color = Color(0.05, 0.05, 0.05)
 

@@ -36,7 +36,13 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   inside, every machine counts down locally from `_sync`). Pizzas/sticks are Items whose synced
   `state` dict holds toppings/stage/bake/condition or fry result; holder == Item.IN_STATION while
   cooking. Host-side pizza damage (`Item.damage_pizza`) sends feedback to the holder. Cold decay
-  runs on the host in `World._tick_cold_pizzas`. Doors only knock until the orders step.
+  runs on the host in `World._tick_cold_pizzas`.
+  Step 5 done: `scripts/game_state.gd` (node "Game", `GameState.instance`) owns `order` + team
+  `money`, synced to all. New order when anyone is in the shop and there's none. Knocks go through
+  the host (`HouseDoor._request_knock`); the host picks the visit timing and plays it everywhere
+  (`_play_visit` RPC), then `GameState.deliver` takes matching items from EVERYONE within 4.5m
+  of the door. House doors are named "Door" and customers are seeded by address so RPC paths and
+  looks match on every machine.
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever
   owns the target: players -> `Player.receive_shove` on their machine (friendly fire = shove only,
   never damage), loose items -> host `Item.request_knock`, thrown items detect hits on the host.

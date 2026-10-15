@@ -72,13 +72,31 @@ func _process(delta: float) -> void:
 		return
 	hud.set_stamina(me.stamina / Player.STAMINA_MAX)
 	hud.set_slots(me.inventory(), me.active_slot)
+	_refresh_order_hud(me)
+
+
+## Order info, team money and the compass marker, from the host-owned GameState.
+func _refresh_order_hud(me: Player) -> void:
+	var game := GameState.instance
+	hud.money_label.text = "$%d" % game.money
+	var lines := PackedStringArray()
+	if game.has_order():
+		lines.append("DELIVER TO: " + game.order.house)
+		for entry in game.order.items:
+			lines.append("- " + GameState.describe_entry(entry))
+	else:
+		lines.append("No order. Head back to the shop.")
+	hud.order_label.text = "\n".join(lines)
 	var fwd := -me.global_transform.basis.z
 	hud.compass.heading = atan2(fwd.x, -fwd.z)
-	if me.in_shop:
-		hud.compass.marker_bearing = NAN
-	else:
+	if game.has_order():
+		hud.compass.marker_bearing = Compass.bearing(me.global_position, game.order_house().marker_position())
+		hud.compass.marker_color = Color(1, 0.85, 0.4)
+	elif not me.in_shop:
 		hud.compass.marker_bearing = Compass.bearing(me.global_position, SHOP_DOOR)
 		hud.compass.marker_color = Color(1, 0.5, 0.3)
+	else:
+		hud.compass.marker_bearing = NAN
 	var target = me.get_interact_target()
 	hud.prompt_label.text = target.get_prompt(me) if target else ""
 
@@ -91,6 +109,7 @@ func host() -> void:
 		return
 	_enter_game()
 	_spawn_player(1)
+	GameState.instance.start()
 	status.text = ""
 
 
@@ -112,8 +131,6 @@ func player(id: int) -> Player:
 func _enter_game() -> void:
 	menu.hide()
 	hud.visible = true
-	hud.order_label.text = "Co-op build in progress: no orders yet."
-	hud.money_label.text = ""
 	if not multiplayer.is_server():
 		status.text = ""
 
