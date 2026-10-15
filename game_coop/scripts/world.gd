@@ -15,6 +15,7 @@ const COLD_INTERVAL := 3.0
 static var instance: World
 
 var _next_slot := 0
+var _in_game := false
 var _next_item := 0
 var _cold_timer := 0.0
 var freeze_monsters := false # dev tests: hold monsters still
@@ -38,6 +39,9 @@ func _ready() -> void:
 	$Menu/Panel/Box/Host.pressed.connect(host)
 	$Menu/Panel/Box/Join.pressed.connect(func() -> void: join(address_field.text))
 	$Menu/Panel/Box/Quit.pressed.connect(get_tree().quit)
+	$Menu/Pause/Box/Resume.pressed.connect(_set_paused.bind(false))
+	$Menu/Pause/Box/Leave.pressed.connect(_back_to_menu.bind("You left the game."))
+	$Menu/Pause/Box/QuitGame.pressed.connect(get_tree().quit)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_enter_game)
@@ -73,7 +77,7 @@ func _process(delta: float) -> void:
 	var me := local_player()
 	if me == null:
 		return
-	hud.set_stamina(me.stamina / Player.STAMINA_MAX)
+	hud.set_stamina(me.stamina / me.stamina_max)
 	hud.set_slots(me.inventory(), me.active_slot)
 	_refresh_order_hud(me)
 	# Heartbeat only for whoever is actually being chased.
@@ -123,6 +127,7 @@ func host() -> void:
 	GameState.instance.start()
 	_spawn_monsters.call_deferred()
 	status.text = ""
+	hud.show_message("Hosting! Friends join with:%s%s" % ["\n", _share_addresses()], 10.0)
 
 
 func join(address: String) -> void:
@@ -132,7 +137,32 @@ func join(address: String) -> void:
 	status.text = "Joining..."
 
 
+## Esc in game: the pause menu (the world keeps running - it's multiplayer).
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and _in_game:
+		_set_paused(not $Menu/Pause.visible)
+
+
+func _set_paused(paused: bool) -> void:
+	menu.visible = paused
+	$Menu/Panel.visible = not paused
+	$Menu/Pause.visible = paused
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
+
+
+## This PC's addresses a friend could type to join (home network, and Tailscale if running).
+func _share_addresses() -> String:
+	var found := PackedStringArray()
+	for a in IP.get_local_addresses():
+		if a.count(".") != 3 or a.begins_with("127.") or a.begins_with("169.254."):
+			continue
+		found.append(a + (" (Tailscale)" if a.begins_with("100.") else ""))
+	return "   ".join(found) if not found.is_empty() else "your IP address"
+
+
 func local_player() -> Player:
+	if players == null: # asked before the world finished setting up
+		return null
 	return players.get_node_or_null(str(multiplayer.get_unique_id())) as Player
 
 
@@ -141,6 +171,7 @@ func player(id: int) -> Player:
 
 
 func _enter_game() -> void:
+	_in_game = true
 	menu.hide()
 	hud.visible = true
 	if not multiplayer.is_server():

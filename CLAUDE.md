@@ -21,7 +21,8 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   monsters); each player owns their own movement (MultiplayerSynchronizer); clients change the
   world only via `rpc_id(1, ...)` requests that the host validates. Direct ENet for development,
   Steam lobbies later (swap the MultiplayerPeer).
-- Phase 3 rebuild is IN PROGRESS in `game_coop/` (main scene `scenes/world.tscn`). Done: step 1
+- Phase 3 rebuild: steps 1-7 DONE in `game_coop/` (main scene `scenes/world.tscn`) - the co-op
+  game has the full POC loop. `game_coop/` is now THE game; build on it. Done: step 1
   (menu, host/join, synced players with movement/flashlight/footsteps, per-machine shop mood).
   Connection code lives only in `scripts/net.gd` (autoload `Net`). Players are spawned through
   `PlayerSpawner.spawn(data)` + `World._make_player` so spawn info is identical on every machine
@@ -48,6 +49,11 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   who smells of food (14m) or is close (6m). Bites shove the victim on their machine and the host
   damages their exposed pizza (34%). Player hits arrive via `Shambler.request_hit`; thrown items
   call `knock_back` on the host. Heartbeat plays only for the hunted player.
+  Step 7 done: upgrade wall (`upgrade_station.gd`). Upgrades are PERSONAL, paid from TEAM money;
+  levels live in synced `GameState.upgrades` ({peer id: {id: level}}) and every machine applies
+  everyone's via `Player.apply_upgrades` (slot_count only on the owner, it syncs from there).
+  Esc = pause menu (Resume / Leave game / Quit; the world keeps running). Hosting shows this PC's
+  join addresses (LAN + Tailscale).
   Dev tests: never let the host's checks finish before the client's (the client reloads to the
   menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever

@@ -37,6 +37,10 @@ var slot_count := 2
 ## Which slot is in your hand. Synced so everyone sees what you're holding.
 var active_slot := 0
 var stamina := STAMINA_MAX
+# Upgradable stats (GameState.UPGRADES); set by apply_upgrades on every machine.
+var stamina_max := STAMINA_MAX
+var speed_mult := 1.0
+var punch_mult := 1.0
 var in_shop := false # local player only; set by the world
 var combat: PlayerCombat
 var _exhausted := false
@@ -96,6 +100,9 @@ func _ready() -> void:
 	_footsteps.volume_db = FOOTSTEP_VOLUME_DB
 	add_child(_footsteps)
 
+	if GameState.instance:
+		apply_upgrades(GameState.instance.upgrades.get(str(name), {}))
+
 	combat = PlayerCombat.new()
 	combat.name = "Combat" # same path on every machine, so its RPCs line up
 	add_child(combat)
@@ -141,6 +148,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in 6:
 			if event.is_action_pressed("slot_%d" % (i + 1)):
 				select_slot(i)
+
+
+# --- Upgrades ---------------------------------------------------------------------------
+
+## Applies this player's upgrade levels (called on every machine whenever they change).
+func apply_upgrades(levels: Dictionary) -> void:
+	speed_mult = 1.0 + 0.1 * levels.get("shoes", 0)
+	punch_mult = 1.0 + 0.3 * levels.get("knuckles", 0)
+	var fl: int = levels.get("flashlight", 0)
+	flashlight.spot_range = 20.0 + 8.0 * fl
+	flashlight.spot_angle = 28.0 + 6.0 * fl
+	flashlight.light_energy = 3.0 + 1.0 * fl
+	var new_max: float = STAMINA_MAX * (1.0 + 0.3 * levels.get("energy", 0))
+	if new_max > stamina_max:
+		stamina = new_max # topped up on purchase
+	stamina_max = new_max
+	if is_local(): # slot_count syncs from the owner
+		slot_count = 2 + levels.get("bag", 0)
 
 
 # --- Inventory --------------------------------------------------------------------
@@ -281,14 +306,14 @@ func _move(delta: float) -> void:
 	if sprinting:
 		stamina = maxf(stamina - delta, 0.0)
 	else:
-		stamina = minf(stamina + STAMINA_REGEN * delta, STAMINA_MAX)
+		stamina = minf(stamina + STAMINA_REGEN * delta, stamina_max)
 
 	if _stun > 0.0:
 		_stun -= delta
 		velocity.x = lerpf(velocity.x, 0.0, 2.0 * delta) # slide out of the shove
 		velocity.z = lerpf(velocity.z, 0.0, 2.0 * delta)
 	else:
-		var speed := SPRINT_SPEED if sprinting else WALK_SPEED
+		var speed := (SPRINT_SPEED if sprinting else WALK_SPEED) * speed_mult
 		var w := clampf(ACCEL * delta, 0.0, 1.0)
 		velocity.x = lerpf(velocity.x, dir.x * speed, w)
 		velocity.z = lerpf(velocity.z, dir.z * speed, w)

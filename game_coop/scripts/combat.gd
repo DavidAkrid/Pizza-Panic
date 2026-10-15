@@ -147,6 +147,8 @@ func _attack(power: float) -> void:
 			return _dist(a) < _dist(b))
 		targets.resize(1)
 	var force: float = w.force * lerpf(1.0, CHARGE_FORCE_MULT, power)
+	if item == null:
+		force *= player.punch_mult # brass knuckles
 	var stun: float = w.stun * lerpf(1.0, CHARGE_STUN_MULT, power)
 	for t in targets:
 		var away := t.global_position - player.global_position

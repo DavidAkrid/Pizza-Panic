@@ -13,6 +13,16 @@ const ITEM_WEIGHTS := {"pizza": 6.0, "sticks": 3.0, "soda": 2.0} # how often eac
 const MAX_ORDER_ITEMS := 2
 ## Everyone within this distance of the door when it opens hands over what they're carrying.
 const DELIVERY_RANGE := 4.5
+## Shop wall upgrades: personal, paid from team money. One price per level; effects live in
+## Player.apply_upgrades.
+const UPGRADES := {
+	"shoes": {"name": "Running Shoes", "effect": "+10% move speed", "costs": [30, 60, 100]},
+	"bag": {"name": "Bigger Bag", "effect": "+1 inventory slot", "costs": [50, 100, 150, 200]},
+	"knuckles": {"name": "Brass Knuckles", "effect": "+30% punch power", "costs": [40, 80, 120]},
+	"flashlight": {"name": "Better Flashlight", "effect": "brighter, wider, further", "costs": [25, 60]},
+	"energy": {"name": "Energy Drink", "effect": "+30% stamina", "costs": [30, 60, 90]},
+}
+const KACHING := preload("res://audio/kaching.wav")
 
 static var instance: GameState
 
@@ -22,6 +32,13 @@ var order := {}:
 		order = value
 		if is_node_ready():
 			_show_order()
+## Each player's upgrade levels: {"<peer id>": {"shoes": 1, ...}}. Synced; every machine applies
+## everyone's levels (so you see a friend's brighter flashlight). Reassign, never mutate.
+var upgrades := {}:
+	set(value):
+		upgrades = value
+		if is_node_ready():
+			apply_all_upgrades()
 var _last_house := ""
 
 
@@ -221,6 +238,55 @@ func _score(entry: Dictionary, it: Item) -> Array:
 			var pay := int(round(PAY.sticks * float(it.state.get("fry_quality", 0.2))))
 			return [pay, "Mozzarella Sticks $%d: %s" % [pay, it.state.get("fry", "?")]]
 	return [int(PAY.soda), "Soda $%d" % int(PAY.soda)]
+
+
+# --- Upgrades ------------------------------------------------------------------------
+
+func upgrade_level(p: Player, id: String) -> int:
+	if p == null:
+		return 0
+	return upgrades.get(str(p.name), {}).get(id, 0)
+
+
+## Price of this player's next level, or -1 if maxed out.
+func upgrade_cost(p: Player, id: String) -> int:
+	var costs: Array = UPGRADES[id].costs
+	var level := upgrade_level(p, id)
+	return costs[level] if level < costs.size() else -1
+
+
+## Host: team money pays, the level is the buyer's.
+func buy_upgrade(p: Player, id: String) -> void:
+	var cost := upgrade_cost(p, id)
+	if cost < 0:
+		return
+	var buyer := p.name.to_int()
+	if money < cost:
+		_tell.rpc_id(buyer, "The team needs $%d more." % (cost - money), false)
+		return
+	money -= cost
+	var all := upgrades.duplicate(true)
+	var mine: Dictionary = all.get(str(p.name), {})
+	mine[id] = mine.get(id, 0) + 1
+	all[str(p.name)] = mine
+	upgrades = all
+	_tell.rpc_id(buyer, "Bought %s!%s%s" % [UPGRADES[id].name, "\n", UPGRADES[id].effect], true)
+
+
+## Every machine: push the synced levels onto each player copy.
+func apply_all_upgrades() -> void:
+	if World.instance == null:
+		return
+	for p: Player in World.instance.players.get_children():
+		p.apply_upgrades(upgrades.get(str(p.name), {}))
+
+
+@rpc("authority", "call_local", "reliable")
+func _tell(text: String, purchased: bool) -> void:
+	World.instance.hud.show_message(text, 2.5)
+	var me := World.instance.local_player()
+	if purchased and me:
+		me.play_sfx(KACHING, 1.0, -4.0)
 
 
 ## A message on everyone's screen.
