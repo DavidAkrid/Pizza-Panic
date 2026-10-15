@@ -21,7 +21,15 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   monsters); each player owns their own movement (MultiplayerSynchronizer); clients change the
   world only via `rpc_id(1, ...)` requests that the host validates. Direct ENet for development,
   Steam lobbies later (swap the MultiplayerPeer).
-- Next: Phase 3 = rebuild in a new `game_coop/` folder, porting systems in this order:
+- Phase 3 rebuild is IN PROGRESS in `game_coop/` (main scene `scenes/world.tscn`). Done: step 1
+  (menu, host/join, synced players with movement/flashlight/footsteps, per-machine shop mood).
+  Connection code lives only in `scripts/net.gd` (autoload `Net`). Players are spawned through
+  `PlayerSpawner.spawn(data)` + `World._make_player` so spawn info is identical on every machine
+  (setting properties on the host before add_child does NOT reach a client-owned node).
+  Stations in the shop are decoration until the stations step; doors only knock (`CO-OP TODO`s).
+  Dev test: host `<godot> --path game_coop -- --test=host --port=7778 --shots=<dir>` in the
+  background, then `--test=client --port=7778`; checks live in `scripts/dev_test.gd`.
+- Rebuild order:
   world -> players -> items/inventory -> stations -> orders/delivery -> monsters -> upgrades -> polish.
   Reuse visuals, map builder, sounds, tuning numbers from `game/`.
 - Two-instance automated test: `<godot> --path net_spike -- --test=host --shots=<dir>` in the
