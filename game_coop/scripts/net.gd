@@ -7,7 +7,7 @@ extends Node
 ## Everything else in the game only talks to Godot's `multiplayer` API, so nothing else changes.
 
 const DEFAULT_PORT := 7777
-const MAX_PLAYERS := 4
+const MAX_PLAYERS := 4 ## including the host (the game has 4 colors / spawn spots)
 
 ## Overridable with `-- --port=<n>` (the dev tests use 7778 so they never clash with a real game).
 var port := DEFAULT_PORT
@@ -21,7 +21,7 @@ func _ready() -> void:
 
 func host() -> Error:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(port, MAX_PLAYERS)
+	var err := peer.create_server(port, MAX_PLAYERS - 1) # ENet counts joiners, not the host
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer

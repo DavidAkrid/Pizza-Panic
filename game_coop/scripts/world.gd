@@ -14,7 +14,6 @@ const COLD_INTERVAL := 3.0
 
 static var instance: World
 
-var _next_slot := 0
 var _in_game := false
 var _next_item := 0
 var _cold_timer := 0.0
@@ -45,7 +44,7 @@ func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_enter_game)
-	multiplayer.connection_failed.connect(_back_to_menu.bind("Couldn't connect."))
+	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_back_to_menu.bind("The host left."))
 	# Every machine builds spawned players with the same function + data, so who-is-who,
 	# color and starting spot are identical everywhere (see _make_player).
@@ -178,6 +177,12 @@ func _enter_game() -> void:
 		status.text = ""
 
 
+func _on_connection_failed() -> void:
+	Net.leave()
+	status.text = "Couldn't connect. The game may be full (%d players max), or the address is wrong." % Net.MAX_PLAYERS
+	print("Connection failed")
+
+
 ## Leaving (or losing the host) resets everything by reloading the scene.
 func _back_to_menu(reason: String) -> void:
 	Net.leave()
@@ -202,9 +207,16 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 ## Host only. The PlayerSpawner runs _make_player with this data on every machine.
+## Takes the lowest free player number, so someone rejoining gets their color/spot back.
 func _spawn_player(id: int) -> void:
-	$PlayerSpawner.spawn({"id": id, "slot": _next_slot})
-	_next_slot += 1
+	var taken: Array[int] = []
+	for p: Player in players.get_children():
+		if not p.is_queued_for_deletion():
+			taken.append(p.slot)
+	var slot := 0
+	while slot in taken:
+		slot += 1
+	$PlayerSpawner.spawn({"id": id, "slot": slot})
 
 
 func _make_player(data: Dictionary) -> Player:

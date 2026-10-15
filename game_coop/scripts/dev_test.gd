@@ -36,6 +36,14 @@ static func _client(world: World, tree: SceneTree, dir: String) -> void:
 
 # --- Helpers ---------------------------------------------------------------------
 
+## Seconds a test client stays connected (`-- --stay=<s>`, default 3).
+static func _arg_stay() -> int:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--stay="):
+			return a.trim_prefix("--stay=").to_int()
+	return 3
+
+
 ## Stands `dist` meters from `target` (on the side we're already on) and faces it.
 static func _face_toward(tree: SceneTree, me: Player, target: Node3D, dist: float) -> void:
 	var dir := target.global_position - me.global_position

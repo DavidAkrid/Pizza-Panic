@@ -185,4 +185,5 @@ Port .............................. net.gd: DEFAULT_PORT (or run with  -- --port
 - Monsters steer straight at you (no pathfinding).
 - Placeholder art (boxes and capsules) and placeholder audio.
 - Orders max out at 2 items even with more slots.
+- 4 players max (host + 3). Joining a full game waits ~30s, then says it may be full.
 - Not yet tested over a real internet connection with a friend (only same PC / same network).
