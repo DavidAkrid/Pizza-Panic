@@ -1,242 +1,188 @@
 PIZZA PANIC - PROJECT OVERVIEW
-Written 2026-10-14. Describes the code as of commit b918dd6 (branch milestone-1-poc).
+Updated 2026-10-15 for the CO-OP version (game_coop/).
+The original single-player proof of concept lives in game/ and is tagged poc-final in git.
 
-This is a walkthrough of how the project is put together and what happens, step by step,
-when you play. Read top to bottom the first time; after that, jump to the section you need.
+How the project is put together, and what happens step by step when you play.
+Read top to bottom once; after that, jump to the section you need.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. THE FOLDER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Pizza Panic/
-  PizzaPanic_DesignDoc_v3.txt   The vision and the plan. v1/v2 are history.
-  CLAUDE.md                     Notes for Claude (code map, gotchas). Also useful for you.
+  PizzaPanic_DesignDoc_v3.txt   The vision and the plan.
+  CLAUDE.md                     Notes for Claude (status, code map, gotchas). Useful for you too.
   PROJECT_OVERVIEW.txt          This file.
-  build/                        Exported game builds (Windows exe, Mac zip). Not in git.
-  game/                         THE GODOT PROJECT. Open game/project.godot in Godot.
-    project.godot               Project settings (window size, physics engine, autoloads).
-    export_presets.cfg          Settings for "Export to Windows / macOS".
-    scenes/                     Scene files (.tscn): main, player, shambler, soda_can.
-    scripts/                    All game code (.gd files, GDScript).
-    audio/                      Placeholder sound effects (.wav).
-    tools/make_sfx.py           Python script that generated those sounds.
+  game_coop/                    THE GAME (co-op). Open game_coop/project.godot in Godot.
+  game/                         The old single-player proof of concept. Reference only.
+  net_spike/                    The tiny networking test from before the rebuild. Reference only.
+  build/                        Exported builds (not in git):
+                                  build/coop/  <- the co-op game for Windows / Linux / Mac
 
-Files ending in .import and .uid are Godot bookkeeping. Leave them alone; they belong in git.
-The hidden game/.godot/ folder is Godot's cache. It's ignored by git and safe to delete.
+Inside game_coop/:
+  project.godot        Settings (window, Jolt physics, autoloads InputSetup + Net)
+  export_presets.cfg   Windows / macOS / Linux export settings
+  scenes/              world.tscn (everything), player, item, shambler
+  scripts/             all the code (section 5)
+  audio/               placeholder sounds; tools/make_sfx.py made them
+  tools/devtest_checks.py   helper for the automated two-window tests
 
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. GODOT IN 60 SECONDS (the bits this project uses)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Everything in the game is a NODE (a light, a mesh, a physics body, a sound player...).
-- Nodes form a TREE. A SCENE (.tscn) is a saved tree you can load or reuse.
-- A SCRIPT (.gd) attached to a node gives it behavior. Key built-in functions:
-    _ready()             runs once when the node enters the game
-    _process(delta)      runs every frame (delta = seconds since last frame)
-    _physics_process()   runs every physics tick (60/sec), used for movement
-- "class_name Foo" at the top of a script lets other scripts refer to it as Foo.
-- An AUTOLOAD is a script Godot starts automatically before the main scene.
-- A TWEEN animates a value over time ("move this to here over 0.3s").
-
-Two styles are mixed in this project:
-  (a) Hand-built in a scene file: the shop interior, its stations, lights, boards.
-      You can see and select these in the editor.
-  (b) Built by code at startup: the whole neighborhood, house doors and customers,
-      the upgrade plaques, monsters, items. These do NOT show in the editor, only
-      in the running game. To change them, change the numbers in the script.
+.import / .uid files are Godot bookkeeping (keep them in git). game_coop/.godot/ is a cache.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3. WHAT HAPPENS WHEN YOU PRESS F5
+2. HOW CO-OP WORKS (the one idea to understand)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. project.godot says: window is 1280x720 but the game renders at 640x360 and scales
-   up with sharp pixels (that's the chunky retro look). Physics engine = Jolt.
-2. The autoload scripts/input_setup.gd runs first and registers every control
-   (WASD, E, mouse buttons, scroll, 1-6...). All keybindings live in that one file.
-3. scenes/main.tscn loads. Its top-level nodes, in order:
-     WorldEnvironment   sky color, fog, ambient light (the "mood" settings)
-     Moon               dim blue directional light
-     Hud                the 2D overlay (scripts/hud.gd builds it in code)
-     Ambience           procedural music (scripts/ambience.gd)
-     Neighborhood       empty node; scripts/neighborhood.gd builds the whole town here
-     Player             instance of scenes/player.tscn, standing in the shop
-     Shop               hand-built interior: walls, floor, stations, boards, lights
-     Game               the brain (scripts/game.gd). It is LAST on purpose, so
-                        everything above it is ready before it starts.
-4. Neighborhood._ready() builds the map: ground, roads, storefronts, 12 houses,
-   park trees, street lamps, cars, street signs, invisible boundary walls, and a
-   list of monster spawn points.
-5. Game._ready():
-     - hooks up "player got hit" and "player swung the pizza" events
-     - spawns 9 shamblers at the spawn points (they stay for the whole session)
-     - sets the "inside the shop" mood
-     - creates the first order: 1 pizza to 12 Main St (always)
-     - shows the welcome message
+Every player's computer runs a full copy of the world. To keep the copies in agreement:
 
+  THE HOST OWNS THE WORLD.
+    Items, stations, the oven/fryer, the order, team money, upgrades, monsters.
+    Only the host changes these. Godot's "MultiplayerSynchronizer" nodes copy the
+    results to everyone automatically.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. THE GAME LOOP, STEP BY STEP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-A. AN ORDER APPEARS                                     (game.gd: _new_order)
-   - An order = a house + 1 or 2 items from: pizza (with 1-2 toppings), mozzarella
-     sticks, soda. Never more items than you have inventory slots.
-   - First order is fixed. After that: random items, random house (never the same
-     house twice in a row). All 12 houses can order.
-   - The order shows on the chalkboard behind the counter, in the HUD top-left, as a
-     gold chevron over the house's porch, and as a gold marker on the compass.
-   - The target house's porch light turns on bright.
+  EACH PLAYER OWNS THEIR OWN BODY.
+    Your movement, where you look, your flashlight, which slot you have selected.
+    Your machine sends those to everyone else.
 
-B. YOU COOK                                    (station.gd, oven.gd, fryer.gd)
-   Every station works the same way: look at it, the HUD shows a prompt, press E.
-   The interaction comes from a short ray out of the camera (2.6m) that only hits
-   things on the "interactable" physics layer.
-   PIZZA:   Dough station -> you get a raw Pizza.
-            Topping bins -> each adds that topping (pizza must be in your hand).
-            Oven -> put it in. It hums, counts up, DINGS at "PERFECT" (8-11s),
-                    then "Overdone", then "BURNT" at 15s. Press E to pull it.
-            Boxes station -> boxes a baked pizza.
-   STICKS:  Freezer -> frozen mozzarella sticks.
-            Fryer -> drop them in. Sizzles, dings at "GOLDEN" (5-7s), burns at 10s.
-   SODA:    Cooler -> a can (as many as you want).
-   TRASH:   throws away whatever is in your hand.
+  TO CHANGE THE WORLD, YOU ASK THE HOST.
+    Pressing E on a station, picking up an item, knocking, buying an upgrade: your machine
+    sends a request (an "RPC") to the host. The host checks it's allowed (close enough?
+    room in your inventory? did someone else grab it first?), applies it, and the result
+    syncs back out. That's why two people can never grab the same pizza.
 
-C. YOUR INVENTORY                                           (player.gd)
-   - 2 slots to start (Bigger Bag upgrade adds up to 4 more). Switch with scroll
-     wheel or number keys. HUD bottom-right shows the slots.
-   - A slot holds either a Pizza (pure data: toppings, stage, bake quality,
-     condition %) or a Throwable (a real physics object, like a soda can, that is
-     taken out of the world while you carry it).
-   - New items go in the current slot if empty, otherwise the next free one.
-   - Attacks, throws and drops always use the CURRENTLY SELECTED slot.
+  "SPAWNERS" create things on every machine at once (players, items, monsters), with the
+    same name and starting data everywhere, so requests always find the right object.
 
-D. YOU WALK OUT THE DOOR                                    (game.gd)
-   - An invisible box (ShopArea) covers the shop. Leaving it fades in heavy fog,
-     drops the ambient light, and crossfades the music from cozy pad to low drone.
-   - Unboxed pizza in your inventory loses 1% every 3 seconds outside.
-   - Monsters can never enter the shop (they stop at the doorway).
-
-E. MONSTERS                                                 (shambler.gd)
-   - Each shambler wanders around its spawn point.
-   - It starts chasing if you're within 14m while carrying food (pizza or sticks),
-     or 6m if you're empty-handed. It gives up at 24m or when you enter the shop,
-     then slowly shambles back home.
-   - Chase speed is faster than walking, slower than sprinting.
-   - It stops about 1m from you and bites: you get knocked back and your pizza
-     loses 34%. Three bites = destroyed pizza.
-   - While anything is chasing you, a heartbeat plays.
-
-F. FIGHTING BACK                                            (player.gd)
-   - Left click: punch (empty hand) or swing what you're holding.
-     HOLD to charge (1 second for full power): more knockback, longer stun.
-     Pizza swing is a wide flat swipe that hits everything in front of you but
-     costs the pizza 15%.
-   - Right click: throw what you're holding. HOLD to charge for a harder throw.
-     A thrown pizza takes 3% (tap) to 15% (full charge) damage when it lands, and
-     can be picked back up with E.
-   - Pressing the OTHER mouse button while charging cancels.
-   - E with nothing in front of you drops your item gently at your feet.
-   - Any pizza damage triggers: hitmarker X + tick sound, red flash, shake.
-
-G. DELIVERY                                       (house_door.gd, game.gd)
-   - Every door says "[E] Knock". At the order house, if you carry something they
-     ordered, it says "[E] Deliver to <address>".
-   - Knock -> at the order house the door cracks open, the customer leans out,
-     looks at you, flaps their arms, and takes everything you have that matches
-     the order. Timing varies each visit. Other houses: nobody answers.
-   - Partial delivery is fine: hand over what you have, come back with the rest.
-   - Pay (game.gd: _score):
-       Pizza  $20 x topping accuracy x bake quality x condition, +$10 tip if perfect
-       Sticks $8 x fry quality
-       Soda   $3
-   - Order complete -> the house goes dark, compass points back to the shop.
-
-H. BACK AT THE SHOP
-   - Walking back in creates the next order.
-   - Spend money on the upgrade wall (right side of the shop), then repeat.
+How players connect lives in ONE file: scripts/net.gd. Today it's direct connections
+(host's IP address, port 7777). Swapping to Steam lobbies later only changes that file.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. THE SCRIPTS, ONE BY ONE
+3. WHAT HAPPENS WHEN YOU START
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-game.gd            The brain. Orders, delivery and pay, upgrade purchases, pizza
-                   damage, cold decay, inside/outside mood, HUD updates, monster
-                   spawning. Other scripts reach it via Game.instance.
-                   Also holds the dev test harness at the bottom (see section 8).
-player.gd          Movement, stamina, camera bob, inventory slots, punching,
-                   swinging, throwing, dropping, charge animations, and how each
-                   upgrade changes the player (apply_upgrade).
-pizza.gd           What a pizza IS: toppings, stage (raw/baked/boxed), bake
-                   quality, condition. Also builds the little 3D pizza model.
-throwable.gd       Physical items: soda cans, fried food, thrown pizzas. Each has
-                   its own swing and throw strength. Handles hits on monsters.
-station.gd         Dough, topping bins, boxes, trash, soda cooler, freezer.
-oven.gd / fryer.gd Timed cooking stations.
-upgrade_station.gd The plaques on the right wall.
-neighborhood.gd    Builds the town. House list, lamp list, sign list, spawn points
-                   are all plain lists near the top - edit those to reshape the map.
-house.gd           A house: porch light, chevron, "am I the active order?".
-house_door.gd      Knocking, door swing, the customer and their animation.
-shambler.gd        Monster brain and animation.
-hud.gd             The on-screen overlay. compass.gd draws the compass strip.
-ambience.gd        Placeholder music, generated live (no audio files).
-flicker_light.gd   Street lamps that cut in and out.
-input_setup.gd     All keybindings.
+1. Autoloads start: InputSetup registers all controls; Net gets ready to connect.
+2. world.tscn loads on every machine: the shop, the neighborhood (built by code), the HUD,
+   the music, and the menu (Host game / address box / Join game / Quit).
+3. HOST GAME: Net opens port 7777. The host's player spawns, GameState creates the first
+   order (one pizza to 12 Main St), 9 monsters spawn, and the screen shows the addresses
+   friends can type (home network, plus Tailscale if it's running).
+4. JOIN GAME: Net connects to the typed address. When the host sees the new connection it
+   spawns that player, and the joiner receives everything that already exists.
+5. If the host leaves, everyone else goes back to the menu. Esc opens the pause menu
+   (the world keeps running) with Leave game / Quit.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-6. WHERE TO TWEAK THINGS (tuning knobs)
+4. THE GAME LOOP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Most numbers are constants (const ...) at the TOP of each script.
+A. ORDER (game_state.gd)
+   One shared order at a time: 1-2 items from pizza (1-2 toppings), mozzarella sticks, soda.
+   Shown on the kitchen board, everyone's HUD and compass, and as a lit porch + gold chevron.
+   A new order arrives whenever someone is in the shop and there's no current order.
 
-Player speed, sprint, stamina ........ player.gd: WALK_SPEED, SPRINT_SPEED, STAMINA_*
-Punch / swing / throw strength ....... player.gd: PUNCH, PIZZA_SWING, CHARGE_*, THROW_SPEED
-Punch & swing animation poses ........ player.gd: FIST_*, PIZZA_*, HAND_WOUND_THROW*
-Item swing/throw stats ............... throwable.gd (exports at top; sticks in _make_sticks)
-Monster speed, smell range, bite ..... shambler.gd: CHASE_SPEED, SMELL_RANGE, HIT_*
-Pizza bite / swing / cold damage ..... game.gd: HIT_DAMAGE, SWING_DAMAGE, COLD_*
-Pay per item, tip, order mix ......... game.gd: PAY, PERFECT_TIP, ITEM_WEIGHTS
-Upgrade names, effects, prices ....... game.gd: UPGRADES (effects in player.gd apply_upgrade)
-Bake timing .......................... oven.gd: PERFECT_START, PERFECT_END, BURN_AT
-Fry timing ........................... fryer.gd: FRY_TIMES
-Fog / darkness inside vs outside ..... game.gd: _set_inside
-Map layout, houses, lamps, signs ..... neighborhood.gd (_build_* functions)
-Customer peek animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _visit
-Keybindings .......................... input_setup.gd (also update the Controls board!)
-Shop interior layout ................. main.tscn - move things in the Godot editor
+B. COOK (station.gd, cook_station.gd)
+   Dough -> topping bins -> oven (dings at PERFECT, 8-11s) -> boxes.
+   Freezer -> fryer (dings at GOLDEN, 5-7s). Cooler -> soda. Trash.
+   Everyone sees the same oven/fryer countdown and hears the hum, sizzle and ding.
 
+C. INVENTORY (item.gd, player.gd)
+   2 slots (up to 6 with the Bigger Bag upgrade). Scroll or 1-6 to switch.
+   Every pizza/can/basket is a real item that remembers who holds it and in which slot,
+   so everyone's inventory looks the same on every machine. Friends see what's in your hand.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-7. SOUND
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Music: ambience.gd synthesizes it live (chord pad inside, drone + wind outside,
-  heartbeat when chased). Replace with real tracks later.
-- Effects: game/audio/*.wav, all placeholders made by tools/make_sfx.py.
-  To swap in a real sound, overwrite the .wav with the SAME file name.
-  (oven_hum and fryer_sizzle are loops; the code loops them for you.)
+D. OUTSIDE
+   Leaving the shop makes YOUR screen foggy and dark and switches YOUR music to the drone.
+   Unboxed pizza you carry loses 1% every 3 seconds outside.
 
+E. MONSTERS (shambler.gd)
+   Run by the host. Each chases the closest player who smells of food (14m) or is close
+   (6m), never inside the shop. Bites knock you back and take 34% off your pizza.
+   Only the hunted player hears the heartbeat.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-8. TESTING & BUILDING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Play: open game/project.godot in Godot, press F5.
-- Dev harness (used by Claude): running the game with "-- --shots=<folder>" runs
-  the code in Game._run_shots() instead of normal play - it teleports the player,
-  takes screenshots, prints checks, and quits. It's empty between features.
-- Builds: Godot export templates are installed. Exports go to Pizza Panic/build/:
-    Windows: PizzaPanic.exe (single file) / PizzaPanic.zip
-    macOS:   PizzaPanic_mac.zip (unsigned; testers must allow it in
-             System Settings > Privacy & Security, or run xattr -cr on the app)
-  Ask Claude to "build" or use Project > Export in the editor.
+F. FIGHTING (combat.gd)
+   Left click punch/swing, right click throw, hold to charge, other button cancels.
+   Monsters get the full force. Friends only get a SHOVE: no damage to them or their stuff.
+   Swinging a pizza still hurts YOUR pizza (15%); thrown pizzas take 3-15% on landing.
+
+G. DELIVERY (house_door.gd, game_state.gd)
+   Knock at the order house: everyone sees the door crack open and the customer lean out
+   (looking at you on your screen). They take matching items from EVERYONE within 4.5m of
+   the door, so you can split an order between players. Pay goes to the team.
+   Pizza: $20 x toppings x bake x condition (+$10 tip if perfect). Sticks: $8 x fry. Soda: $3.
+
+H. UPGRADES (upgrade_station.gd)
+   Right wall of the shop. Personal upgrades, paid from team money; plaques show YOUR prices.
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-9. KNOWN LIMITS / WHAT'S NOT THERE YET
+5. THE SCRIPTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- No main menu, pause, or quit button (Alt+F4 / Cmd+Q).
-- No saving: money and upgrades reset every launch.
-- Single player only. Phase 1 code is meant to be thrown away and rebuilt for
-  multiplayer (see the design doc's development plan).
-- Monsters steer straight at you (no pathfinding), so walls and cars confuse them.
-- Placeholder art (boxes and capsules) and placeholder audio throughout.
-- The neighborhood and plaques only appear in the running game, not the editor.
-- Orders max out at 2 items even with more inventory slots.
+net.gd             The ONLY connection code (host/join/leave). Swap for Steam here.
+world.gd           The world scene: menu, pause menu, spawning players/items/monsters,
+                   your inside/outside mood, HUD updates, cold-pizza rule (host).
+game_state.gd      Host-owned rules: order, team money, deliveries, upgrades. Synced.
+player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
+                   footsteps you hear from friends, upgrade effects.
+combat.gd          Charged punch/swing/throw and who gets hit.
+item.gd            Every holdable thing: cans, pizzas, sticks. Holder, slot, state, physics.
+pizza.gd           What a pizza is (toppings, stage, bake, condition) and its 3D look.
+station_base.gd    "Ask the host to use this station" plumbing shared by all stations.
+station.gd         Dough, toppings, boxes, trash, cooler, freezer.
+cook_station.gd    The oven and the fryer.
+upgrade_station.gd The upgrade plaques.
+house.gd           Porch light + chevron.
+house_door.gd      Knocking and the customer visit.
+shambler.gd        Monster brain (host) and animation (everyone).
+neighborhood.gd    Builds the whole town in code (same on every machine).
+hud.gd, compass.gd The on-screen overlay.
+ambience.gd        Placeholder music, generated live.
+dev_test.gd        Automated two-window tests (see section 7).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. WHERE TO TWEAK THINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Movement, stamina ............... player.gd: WALK_SPEED, SPRINT_SPEED, STAMINA_*
+Punch/swing/throw, charge ....... combat.gd: PUNCH, CHARGE_*, THROW_SPEED, PLAYER_SHOVE_MULT
+Item weapon & throw stats ....... item.gd: weapon(), throw_stats()
+Pizza damage (swing, thrown) .... item.gd: PIZZA_SWING_DAMAGE, PIZZA_THROW_DAMAGE
+Cold pizza ...................... world.gd: COLD_DAMAGE, COLD_INTERVAL
+Monsters ........................ shambler.gd: CHASE_SPEED, SMELL_RANGE, BITE_DAMAGE, ...
+Pay, tips, order mix ............ game_state.gd: PAY, PERFECT_TIP, ITEM_WEIGHTS, MAX_ORDER_ITEMS
+Who hands over at the door ...... game_state.gd: DELIVERY_RANGE
+Upgrade names/prices ............ game_state.gd: UPGRADES (effects: player.gd apply_upgrades)
+Oven / fryer timing ............. cook_station.gd: TIMES
+Customer animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _play_visit
+Map, houses, lamps, signs ....... neighborhood.gd
+Keybindings ..................... input_setup.gd (also update the Controls board!)
+Shop layout ..................... world.tscn (move things in the Godot editor)
+Port .............................. net.gd: DEFAULT_PORT (or run with  -- --port=<n>)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PLAYING, TESTING, BUILDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Play in the editor: open game_coop/project.godot, press F5, Host game.
+  For a second player, run a second copy (or an exported build) and Join with a blank address.
+- Builds go to build/coop/: PizzaPanicCoop.exe (Windows), PizzaPanicCoop.x86_64 (Linux,
+  chmod +x it), PizzaPanicCoop_mac.zip (Mac, unsigned: System Settings > Privacy & Security >
+  Open Anyway, or  xattr -cr "/path/to/app").
+- Joining from another house: both install Tailscale; join with the host's 100.x address
+  (shown on screen when hosting). Same Wi-Fi: use the 10.x / 192.168.x address.
+  First time hosting, Windows Firewall asks: click Allow.
+- Automated tests (used by Claude): one copy runs  -- --test=host --port=7778,  another
+  -- --test=client --port=7778. Temporary checks go into dev_test.gd with
+  tools/devtest_checks.py and are removed after.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. KNOWN LIMITS / NOT THERE YET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Joining needs an IP address (Steam lobbies/invites later - no store page needed to start,
+  Valve's test app ID 480 works).
+- No saving: money and upgrades reset each session.
+- No voice chat yet (proximity voice is a big part of the genre - later).
+- Monsters steer straight at you (no pathfinding).
+- Placeholder art (boxes and capsules) and placeholder audio.
+- Orders max out at 2 items even with more slots.
+- Not yet tested over a real internet connection with a friend (only same PC / same network).
