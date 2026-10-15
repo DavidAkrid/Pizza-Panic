@@ -11,7 +11,7 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
 - **Scope note:** Phase 1 has grown past the original Milestone 1 (upgrades, inventory, etc.).
   Call out further scope creep; the real goal is "is the loop fun?".
 
-## Co-op status (branch `coop`)
+## Co-op status
 
 - Phase 1 is DONE and tagged `poc-final`. `game/` is the finished single-player proof of concept:
   keep it as a reference, don't build co-op on top of it.
@@ -135,4 +135,5 @@ Replace any file with a real sound of the same name.
 
 ## Git
 
-Work is on branch `milestone-1-poc` (remote: github.com/DavidAkrid/Pizza-Panic). Commit when David asks.
+Work happens on `main` (remote: github.com/DavidAkrid/Pizza-Panic, pushed). The POC is tagged
+`poc-final`; `coop` and `milestone-1-poc` are old branches. Commit when David asks; push when he asks.
