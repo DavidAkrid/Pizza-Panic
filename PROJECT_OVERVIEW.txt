@@ -1,0 +1,242 @@
+PIZZA PANIC - PROJECT OVERVIEW
+Written 2026-10-14. Describes the code as of commit b918dd6 (branch milestone-1-poc).
+
+This is a walkthrough of how the project is put together and what happens, step by step,
+when you play. Read top to bottom the first time; after that, jump to the section you need.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. THE FOLDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pizza Panic/
+  PizzaPanic_DesignDoc_v3.txt   The vision and the plan. v1/v2 are history.
+  CLAUDE.md                     Notes for Claude (code map, gotchas). Also useful for you.
+  PROJECT_OVERVIEW.txt          This file.
+  build/                        Exported game builds (Windows exe, Mac zip). Not in git.
+  game/                         THE GODOT PROJECT. Open game/project.godot in Godot.
+    project.godot               Project settings (window size, physics engine, autoloads).
+    export_presets.cfg          Settings for "Export to Windows / macOS".
+    scenes/                     Scene files (.tscn): main, player, shambler, soda_can.
+    scripts/                    All game code (.gd files, GDScript).
+    audio/                      Placeholder sound effects (.wav).
+    tools/make_sfx.py           Python script that generated those sounds.
+
+Files ending in .import and .uid are Godot bookkeeping. Leave them alone; they belong in git.
+The hidden game/.godot/ folder is Godot's cache. It's ignored by git and safe to delete.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. GODOT IN 60 SECONDS (the bits this project uses)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Everything in the game is a NODE (a light, a mesh, a physics body, a sound player...).
+- Nodes form a TREE. A SCENE (.tscn) is a saved tree you can load or reuse.
+- A SCRIPT (.gd) attached to a node gives it behavior. Key built-in functions:
+    _ready()             runs once when the node enters the game
+    _process(delta)      runs every frame (delta = seconds since last frame)
+    _physics_process()   runs every physics tick (60/sec), used for movement
+- "class_name Foo" at the top of a script lets other scripts refer to it as Foo.
+- An AUTOLOAD is a script Godot starts automatically before the main scene.
+- A TWEEN animates a value over time ("move this to here over 0.3s").
+
+Two styles are mixed in this project:
+  (a) Hand-built in a scene file: the shop interior, its stations, lights, boards.
+      You can see and select these in the editor.
+  (b) Built by code at startup: the whole neighborhood, house doors and customers,
+      the upgrade plaques, monsters, items. These do NOT show in the editor, only
+      in the running game. To change them, change the numbers in the script.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. WHAT HAPPENS WHEN YOU PRESS F5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. project.godot says: window is 1280x720 but the game renders at 640x360 and scales
+   up with sharp pixels (that's the chunky retro look). Physics engine = Jolt.
+2. The autoload scripts/input_setup.gd runs first and registers every control
+   (WASD, E, mouse buttons, scroll, 1-6...). All keybindings live in that one file.
+3. scenes/main.tscn loads. Its top-level nodes, in order:
+     WorldEnvironment   sky color, fog, ambient light (the "mood" settings)
+     Moon               dim blue directional light
+     Hud                the 2D overlay (scripts/hud.gd builds it in code)
+     Ambience           procedural music (scripts/ambience.gd)
+     Neighborhood       empty node; scripts/neighborhood.gd builds the whole town here
+     Player             instance of scenes/player.tscn, standing in the shop
+     Shop               hand-built interior: walls, floor, stations, boards, lights
+     Game               the brain (scripts/game.gd). It is LAST on purpose, so
+                        everything above it is ready before it starts.
+4. Neighborhood._ready() builds the map: ground, roads, storefronts, 12 houses,
+   park trees, street lamps, cars, street signs, invisible boundary walls, and a
+   list of monster spawn points.
+5. Game._ready():
+     - hooks up "player got hit" and "player swung the pizza" events
+     - spawns 9 shamblers at the spawn points (they stay for the whole session)
+     - sets the "inside the shop" mood
+     - creates the first order: 1 pizza to 12 Main St (always)
+     - shows the welcome message
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. THE GAME LOOP, STEP BY STEP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A. AN ORDER APPEARS                                     (game.gd: _new_order)
+   - An order = a house + 1 or 2 items from: pizza (with 1-2 toppings), mozzarella
+     sticks, soda. Never more items than you have inventory slots.
+   - First order is fixed. After that: random items, random house (never the same
+     house twice in a row). All 12 houses can order.
+   - The order shows on the chalkboard behind the counter, in the HUD top-left, as a
+     gold chevron over the house's porch, and as a gold marker on the compass.
+   - The target house's porch light turns on bright.
+
+B. YOU COOK                                    (station.gd, oven.gd, fryer.gd)
+   Every station works the same way: look at it, the HUD shows a prompt, press E.
+   The interaction comes from a short ray out of the camera (2.6m) that only hits
+   things on the "interactable" physics layer.
+   PIZZA:   Dough station -> you get a raw Pizza.
+            Topping bins -> each adds that topping (pizza must be in your hand).
+            Oven -> put it in. It hums, counts up, DINGS at "PERFECT" (8-11s),
+                    then "Overdone", then "BURNT" at 15s. Press E to pull it.
+            Boxes station -> boxes a baked pizza.
+   STICKS:  Freezer -> frozen mozzarella sticks.
+            Fryer -> drop them in. Sizzles, dings at "GOLDEN" (5-7s), burns at 10s.
+   SODA:    Cooler -> a can (as many as you want).
+   TRASH:   throws away whatever is in your hand.
+
+C. YOUR INVENTORY                                           (player.gd)
+   - 2 slots to start (Bigger Bag upgrade adds up to 4 more). Switch with scroll
+     wheel or number keys. HUD bottom-right shows the slots.
+   - A slot holds either a Pizza (pure data: toppings, stage, bake quality,
+     condition %) or a Throwable (a real physics object, like a soda can, that is
+     taken out of the world while you carry it).
+   - New items go in the current slot if empty, otherwise the next free one.
+   - Attacks, throws and drops always use the CURRENTLY SELECTED slot.
+
+D. YOU WALK OUT THE DOOR                                    (game.gd)
+   - An invisible box (ShopArea) covers the shop. Leaving it fades in heavy fog,
+     drops the ambient light, and crossfades the music from cozy pad to low drone.
+   - Unboxed pizza in your inventory loses 1% every 3 seconds outside.
+   - Monsters can never enter the shop (they stop at the doorway).
+
+E. MONSTERS                                                 (shambler.gd)
+   - Each shambler wanders around its spawn point.
+   - It starts chasing if you're within 14m while carrying food (pizza or sticks),
+     or 6m if you're empty-handed. It gives up at 24m or when you enter the shop,
+     then slowly shambles back home.
+   - Chase speed is faster than walking, slower than sprinting.
+   - It stops about 1m from you and bites: you get knocked back and your pizza
+     loses 34%. Three bites = destroyed pizza.
+   - While anything is chasing you, a heartbeat plays.
+
+F. FIGHTING BACK                                            (player.gd)
+   - Left click: punch (empty hand) or swing what you're holding.
+     HOLD to charge (1 second for full power): more knockback, longer stun.
+     Pizza swing is a wide flat swipe that hits everything in front of you but
+     costs the pizza 15%.
+   - Right click: throw what you're holding. HOLD to charge for a harder throw.
+     A thrown pizza takes 3% (tap) to 15% (full charge) damage when it lands, and
+     can be picked back up with E.
+   - Pressing the OTHER mouse button while charging cancels.
+   - E with nothing in front of you drops your item gently at your feet.
+   - Any pizza damage triggers: hitmarker X + tick sound, red flash, shake.
+
+G. DELIVERY                                       (house_door.gd, game.gd)
+   - Every door says "[E] Knock". At the order house, if you carry something they
+     ordered, it says "[E] Deliver to <address>".
+   - Knock -> at the order house the door cracks open, the customer leans out,
+     looks at you, flaps their arms, and takes everything you have that matches
+     the order. Timing varies each visit. Other houses: nobody answers.
+   - Partial delivery is fine: hand over what you have, come back with the rest.
+   - Pay (game.gd: _score):
+       Pizza  $20 x topping accuracy x bake quality x condition, +$10 tip if perfect
+       Sticks $8 x fry quality
+       Soda   $3
+   - Order complete -> the house goes dark, compass points back to the shop.
+
+H. BACK AT THE SHOP
+   - Walking back in creates the next order.
+   - Spend money on the upgrade wall (right side of the shop), then repeat.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. THE SCRIPTS, ONE BY ONE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+game.gd            The brain. Orders, delivery and pay, upgrade purchases, pizza
+                   damage, cold decay, inside/outside mood, HUD updates, monster
+                   spawning. Other scripts reach it via Game.instance.
+                   Also holds the dev test harness at the bottom (see section 8).
+player.gd          Movement, stamina, camera bob, inventory slots, punching,
+                   swinging, throwing, dropping, charge animations, and how each
+                   upgrade changes the player (apply_upgrade).
+pizza.gd           What a pizza IS: toppings, stage (raw/baked/boxed), bake
+                   quality, condition. Also builds the little 3D pizza model.
+throwable.gd       Physical items: soda cans, fried food, thrown pizzas. Each has
+                   its own swing and throw strength. Handles hits on monsters.
+station.gd         Dough, topping bins, boxes, trash, soda cooler, freezer.
+oven.gd / fryer.gd Timed cooking stations.
+upgrade_station.gd The plaques on the right wall.
+neighborhood.gd    Builds the town. House list, lamp list, sign list, spawn points
+                   are all plain lists near the top - edit those to reshape the map.
+house.gd           A house: porch light, chevron, "am I the active order?".
+house_door.gd      Knocking, door swing, the customer and their animation.
+shambler.gd        Monster brain and animation.
+hud.gd             The on-screen overlay. compass.gd draws the compass strip.
+ambience.gd        Placeholder music, generated live (no audio files).
+flicker_light.gd   Street lamps that cut in and out.
+input_setup.gd     All keybindings.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. WHERE TO TWEAK THINGS (tuning knobs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Most numbers are constants (const ...) at the TOP of each script.
+
+Player speed, sprint, stamina ........ player.gd: WALK_SPEED, SPRINT_SPEED, STAMINA_*
+Punch / swing / throw strength ....... player.gd: PUNCH, PIZZA_SWING, CHARGE_*, THROW_SPEED
+Punch & swing animation poses ........ player.gd: FIST_*, PIZZA_*, HAND_WOUND_THROW*
+Item swing/throw stats ............... throwable.gd (exports at top; sticks in _make_sticks)
+Monster speed, smell range, bite ..... shambler.gd: CHASE_SPEED, SMELL_RANGE, HIT_*
+Pizza bite / swing / cold damage ..... game.gd: HIT_DAMAGE, SWING_DAMAGE, COLD_*
+Pay per item, tip, order mix ......... game.gd: PAY, PERFECT_TIP, ITEM_WEIGHTS
+Upgrade names, effects, prices ....... game.gd: UPGRADES (effects in player.gd apply_upgrade)
+Bake timing .......................... oven.gd: PERFECT_START, PERFECT_END, BURN_AT
+Fry timing ........................... fryer.gd: FRY_TIMES
+Fog / darkness inside vs outside ..... game.gd: _set_inside
+Map layout, houses, lamps, signs ..... neighborhood.gd (_build_* functions)
+Customer peek animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _visit
+Keybindings .......................... input_setup.gd (also update the Controls board!)
+Shop interior layout ................. main.tscn - move things in the Godot editor
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. SOUND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Music: ambience.gd synthesizes it live (chord pad inside, drone + wind outside,
+  heartbeat when chased). Replace with real tracks later.
+- Effects: game/audio/*.wav, all placeholders made by tools/make_sfx.py.
+  To swap in a real sound, overwrite the .wav with the SAME file name.
+  (oven_hum and fryer_sizzle are loops; the code loops them for you.)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. TESTING & BUILDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Play: open game/project.godot in Godot, press F5.
+- Dev harness (used by Claude): running the game with "-- --shots=<folder>" runs
+  the code in Game._run_shots() instead of normal play - it teleports the player,
+  takes screenshots, prints checks, and quits. It's empty between features.
+- Builds: Godot export templates are installed. Exports go to Pizza Panic/build/:
+    Windows: PizzaPanic.exe (single file) / PizzaPanic.zip
+    macOS:   PizzaPanic_mac.zip (unsigned; testers must allow it in
+             System Settings > Privacy & Security, or run xattr -cr on the app)
+  Ask Claude to "build" or use Project > Export in the editor.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. KNOWN LIMITS / WHAT'S NOT THERE YET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- No main menu, pause, or quit button (Alt+F4 / Cmd+Q).
+- No saving: money and upgrades reset every launch.
+- Single player only. Phase 1 code is meant to be thrown away and rebuilt for
+  multiplayer (see the design doc's development plan).
+- Monsters steer straight at you (no pathfinding), so walls and cars confuse them.
+- Placeholder art (boxes and capsules) and placeholder audio throughout.
+- The neighborhood and plaques only appear in the running game, not the editor.
+- Orders max out at 2 items even with more inventory slots.
