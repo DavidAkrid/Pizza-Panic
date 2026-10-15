@@ -32,8 +32,14 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   frozen and display synced transforms; held items follow the holder's hand everywhere.
   Six test soda cans spawn on the cooler until the stations step.
   Stations in the shop are decoration until the stations step; doors only knock (`CO-OP TODO`s).
+  Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever
+  owns the target: players -> `Player.receive_shove` on their machine (friendly fire = shove only,
+  never damage), loose items -> host `Item.request_knock`, thrown items detect hits on the host.
   Dev test: host `<godot> --path game_coop -- --test=host --port=7778 --shots=<dir>` in the
-  background, then `--test=client --port=7778`; checks live in `scripts/dev_test.gd`.
+  background, then `--test=client --port=7778`. Put temporary checks in with
+  `python game_coop/tools/devtest_checks.py set <host.gd> <client.gd>` and remove them with
+  `... clear` (never hand-slice dev_test.gd). ALWAYS run the headless error check after clearing
+  and before every commit: a broken dev_test.gd breaks world.gd and the whole game.
 - Rebuild order:
   world -> players -> items/inventory -> stations -> orders/delivery -> monsters -> upgrades -> polish.
   Reuse visuals, map builder, sounds, tuning numbers from `game/`.

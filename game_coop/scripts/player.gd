@@ -21,7 +21,7 @@ const FOOTSTEPS := [
 	preload("res://audio/footstep_3.wav"), preload("res://audio/footstep_4.wav"),
 ]
 const PICKUP_SFX := preload("res://audio/pickup.wav")
-const WHOOSH_SFX := preload("res://audio/whoosh.wav")
+const THUD_SFX := preload("res://audio/thud.wav")
 const COLORS := [Color(0.9, 0.3, 0.25), Color(0.25, 0.55, 0.9), Color(0.3, 0.8, 0.35), Color(0.9, 0.75, 0.2)]
 
 ## Join order (0 = host). Comes in with the spawn data (World._make_player). Drives color and name.
@@ -38,7 +38,10 @@ var slot_count := 2
 var active_slot := 0
 var stamina := STAMINA_MAX
 var in_shop := false # local player only; set by the world
+var combat: PlayerCombat
 var _exhausted := false
+var _stun := 0.0 # staggered by a shove: no control for a moment
+var _shake := 0.0
 var _bob := 0.0
 var _bob_offset := 0.0
 var _was_on_floor := true
@@ -93,6 +96,11 @@ func _ready() -> void:
 	_footsteps.volume_db = FOOTSTEP_VOLUME_DB
 	add_child(_footsteps)
 
+	combat = PlayerCombat.new()
+	combat.name = "Combat" # same path on every machine, so its RPCs line up
+	add_child(combat)
+	combat.setup(self)
+
 
 func _input(event: InputEvent) -> void:
 	# Mouse look in _input so HUD controls can never swallow it.
@@ -115,8 +123,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_slot(wrapi(active_slot + 1, 0, slot_count))
 	elif event.is_action_pressed("slot_prev"):
 		select_slot(wrapi(active_slot - 1, 0, slot_count))
+	elif event.is_action_pressed("attack"):
+		combat.button_pressed(PlayerCombat.Charging.ATTACK)
+	elif event.is_action_released("attack"):
+		combat.button_released(PlayerCombat.Charging.ATTACK)
 	elif event.is_action_pressed("throw"):
-		throw_held()
+		combat.button_pressed(PlayerCombat.Charging.THROW)
+	elif event.is_action_released("throw"):
+		combat.button_released(PlayerCombat.Charging.THROW)
 	elif event.is_action_pressed("interact"):
 		var target = get_interact_target()
 		if target:
@@ -165,7 +179,8 @@ func free_slot(preferred: int) -> int:
 
 
 func select_slot(i: int) -> void:
-	if i >= 0 and i < slot_count:
+	if i >= 0 and i < slot_count and i != active_slot:
+		combat.cancel()
 		active_slot = i
 
 
@@ -177,14 +192,6 @@ func drop_held() -> void:
 	var forward := -global_transform.basis.z
 	forward.y = 0.0
 	item.request_drop.rpc_id(1, global_position + forward.normalized() * 0.5 + Vector3.UP * 0.25, rotation.y)
-
-
-func throw_held() -> void:
-	var item := held_item()
-	if item == null:
-		return
-	item.request_throw.rpc_id(1, -camera.global_transform.basis.z)
-	play_sfx(WHOOSH_SFX, 1.4, -10.0)
 
 
 ## One-shot sound only this player hears (UI-ish feedback).
@@ -207,8 +214,32 @@ func get_interact_target():
 	return null
 
 
+# --- Getting shoved ---------------------------------------------------------------------
+
+## Sent by whoever hit you (a friend's punch, a thrown can). Runs on YOUR machine because you
+## own your movement. Friendly fire is a shove only: no damage to you or what you carry.
+@rpc("any_peer", "call_local", "reliable")
+func receive_shove(push: Vector3, stun: float) -> void:
+	if not is_local():
+		return
+	velocity = push + Vector3.UP * minf(push.length() * 0.3, 3.5)
+	_stun = maxf(_stun, stun)
+	shake(0.3)
+	combat.cancel()
+	play_sfx(THUD_SFX, randf_range(0.9, 1.1), -4.0)
+
+
+func is_stunned() -> bool:
+	return _stun > 0.0
+
+
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
+
+
 func _physics_process(delta: float) -> void:
 	if is_local():
+		combat.tick(delta)
 		_move(delta)
 	else:
 		_puppet_footsteps(delta)
@@ -217,7 +248,7 @@ func _physics_process(delta: float) -> void:
 func _move(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	elif Input.is_action_just_pressed("jump"):
+	elif Input.is_action_just_pressed("jump") and _stun <= 0.0:
 		velocity.y = JUMP_VELOCITY
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -233,10 +264,15 @@ func _move(delta: float) -> void:
 	else:
 		stamina = minf(stamina + STAMINA_REGEN * delta, STAMINA_MAX)
 
-	var speed := SPRINT_SPEED if sprinting else WALK_SPEED
-	var w := clampf(ACCEL * delta, 0.0, 1.0)
-	velocity.x = lerpf(velocity.x, dir.x * speed, w)
-	velocity.z = lerpf(velocity.z, dir.z * speed, w)
+	if _stun > 0.0:
+		_stun -= delta
+		velocity.x = lerpf(velocity.x, 0.0, 2.0 * delta) # slide out of the shove
+		velocity.z = lerpf(velocity.z, 0.0, 2.0 * delta)
+	else:
+		var speed := SPRINT_SPEED if sprinting else WALK_SPEED
+		var w := clampf(ACCEL * delta, 0.0, 1.0)
+		velocity.x = lerpf(velocity.x, dir.x * speed, w)
+		velocity.z = lerpf(velocity.z, dir.z * speed, w)
 	move_and_slide()
 
 	if is_on_floor() and not _was_on_floor:
@@ -250,8 +286,11 @@ func _update_camera(delta: float, moving: bool, sprinting: bool) -> void:
 		_step_cycle(delta * (17.0 if sprinting else 12.0))
 	var bob_target := sin(_bob) * 0.05 if moving else 0.0
 	_bob_offset = lerpf(_bob_offset, bob_target, clampf(12.0 * delta, 0.0, 1.0))
-	camera.position = Vector3(0, _bob_offset, 0)
-	camera.fov = lerpf(camera.fov, 82.0 if sprinting else 75.0, clampf(6.0 * delta, 0.0, 1.0))
+	_shake = maxf(_shake - delta * 1.5, 0.0)
+	var jitter := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.15
+	camera.position = Vector3(0, _bob_offset, 0) + jitter
+	var fov := (82.0 if sprinting else 75.0) - 6.0 * combat.charge # tunnel in while winding up
+	camera.fov = lerpf(camera.fov, fov, clampf(6.0 * delta, 0.0, 1.0))
 
 
 ## Puppets don't know the owner's input, so infer walking from how far they moved.

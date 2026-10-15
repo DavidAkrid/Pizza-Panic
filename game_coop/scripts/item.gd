@@ -12,7 +12,8 @@ extends RigidBody3D
 const SODA_COLORS := [Color(0.75, 0.1, 0.1), Color(0.1, 0.3, 0.75), Color(0.15, 0.6, 0.2), Color(0.85, 0.55, 0.1)]
 const PICKUP_RANGE := 3.5 # host-side sanity check
 const DROP_RANGE := 2.5
-const THROW_SPEED := 12.0
+const HIT_SPEED := 4.0 # a thrown item must be going at least this fast to count as a hit
+const CLINK := preload("res://audio/clink.wav")
 const FIRST_PERSON_SCALE := 0.6 # held items look smaller in your own hands, like the POC
 
 ## "soda", "pizza", "sticks". Set at spawn (spawn data), never changes.
@@ -32,6 +33,11 @@ var holder_slot := 0
 
 var _visual: Node3D
 var _shape: CollisionShape3D
+# Host only: thrown-item hit tracking.
+var _live := false # thrown and hasn't hit anything yet
+var _charge := 0.0
+var _recent_velocities: Array[Vector3] = [] # contacts can arrive a frame after the bounce
+var _sound_cd := 0.0
 
 
 func _ready() -> void:
@@ -42,6 +48,7 @@ func _ready() -> void:
 	max_contacts_reported = 4
 	continuous_cd = true
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	body_entered.connect(_on_body_entered)
 	_build()
 	_apply_held_state()
 
@@ -73,6 +80,22 @@ func _build() -> void:
 			shape.radius = 0.04
 			shape.height = 0.13
 			_shape.shape = shape
+
+
+## How it works as a melee weapon (left click while holding it). Same keys as PlayerCombat.PUNCH.
+func weapon() -> Dictionary:
+	match kind:
+		"soda":
+			return {"range": 1.9, "arc": 60.0, "force": 5.0, "stun": 0.5, "hits_all": false}
+	return {"range": 1.9, "arc": 60.0, "force": 5.0, "stun": 0.5, "hits_all": false}
+
+
+## How hard it hits when thrown: [force, stun] before charge.
+func throw_stats() -> Array:
+	match kind:
+		"soda":
+			return [7.0, 1.0]
+	return [6.0, 0.8]
 
 
 func describe() -> String:
@@ -154,16 +177,86 @@ func request_drop(at: Vector3, yaw: float) -> void:
 	angular_velocity = Vector3.ZERO
 
 
+## `charge` 0 = tap lob, 1 = full-power throw.
 @rpc("any_peer", "call_local", "reliable")
-func request_throw(direction: Vector3) -> void:
+func request_throw(direction: Vector3, charge: float) -> void:
 	if not multiplayer.is_server() or _sender() != holder:
 		return
 	var p := World.instance.player(holder)
 	holder = 0
 	if p:
 		global_position = p.hand.global_position
-	linear_velocity = direction.normalized() * THROW_SPEED + Vector3.UP * 1.5
+	var speed := lerpf(PlayerCombat.THROW_SPEED.x, PlayerCombat.THROW_SPEED.y, clampf(charge, 0.0, 1.0))
+	linear_velocity = direction.normalized() * speed + Vector3.UP * 1.5
 	angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
+	_live = true
+	_charge = clampf(charge, 0.0, 1.0)
+	_recent_velocities.clear()
+	_thrower = p
+
+
+## Someone punched or swung at it while it was lying around.
+@rpc("any_peer", "call_local", "reliable")
+func request_knock(velocity_change: Vector3) -> void:
+	if not multiplayer.is_server() or holder != 0:
+		return
+	linear_velocity = velocity_change
+	angular_velocity = Vector3(randf_range(-10, 10), randf_range(-10, 10), randf_range(-10, 10))
+
+
+# --- Host: impacts -------------------------------------------------------------------
+
+var _thrower: Player # so a throw can't hit the person who threw it
+
+
+func _physics_process(delta: float) -> void:
+	if not multiplayer.is_server():
+		return
+	_sound_cd -= delta
+	_recent_velocities.push_back(linear_velocity)
+	if _recent_velocities.size() > 3:
+		_recent_velocities.pop_front()
+
+
+func _impact_velocity() -> Vector3:
+	var best := linear_velocity
+	for v in _recent_velocities:
+		if v.length() > best.length():
+			best = v
+	return best
+
+
+func _on_body_entered(body: Node) -> void:
+	if not multiplayer.is_server():
+		return
+	var impact := _impact_velocity()
+	var speed := impact.length()
+	if speed > 1.5 and _sound_cd <= 0.0:
+		play_impact.rpc(clampf(speed / 10.0, 0.15, 1.0))
+		_sound_cd = 0.12
+	if not _live or speed < HIT_SPEED or body == _thrower:
+		return
+	_live = false # one hit per throw
+	var stats := throw_stats()
+	var push := impact
+	push.y = 0.0
+	push = push.normalized() * stats[0] * lerpf(1.0, PlayerCombat.CHARGE_FORCE_MULT, _charge)
+	var stun: float = stats[1] * lerpf(1.0, PlayerCombat.CHARGE_STUN_MULT, _charge)
+	if body is Player:
+		body.receive_shove.rpc_id(body.name.to_int(), push * PlayerCombat.PLAYER_SHOVE_MULT, stun * 0.5)
+	# Monsters plug in here (monsters step).
+
+
+## Everyone hears it clatter, from where it hit.
+@rpc("authority", "call_local", "unreliable")
+func play_impact(loudness: float) -> void:
+	var a := AudioStreamPlayer3D.new()
+	a.stream = CLINK
+	a.volume_db = linear_to_db(loudness)
+	a.pitch_scale = randf_range(0.9, 1.2)
+	a.finished.connect(a.queue_free)
+	add_child(a)
+	a.play()
 
 
 ## Host only: someone left the game while holding this. Drop it where they were.
