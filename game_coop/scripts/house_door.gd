@@ -138,6 +138,7 @@ func _set_idle() -> void:
 @rpc("authority", "call_local", "reliable")
 func _play_visit(pace: float, linger: float, lean: float, flap_speed: float) -> void:
 	_busy = true
+	house.set_visit(true)
 	_customer.rotation.z = 0.0
 	_head.rotation = Vector3.ZERO
 	_flap_t = 0.0
@@ -157,6 +158,7 @@ func _play_visit(pace: float, linger: float, lean: float, flap_speed: float) -> 
 	await tw.finished
 	_peek_pivot.visible = false
 	_busy = false
+	house.set_visit(false) # back inside: now the light can go out (if the order's done)
 
 
 ## A simple low-poly person, feet at the origin, facing +Z (out the front door).

@@ -90,7 +90,9 @@ B. COOK (station.gd, cook_station.gd)
    Everyone sees the same oven/fryer countdown and hears the hum, sizzle and ding.
 
 C. INVENTORY (item.gd, player.gd)
-   2 slots (up to 6 with the Bigger Bag upgrade). Scroll or 1-6 to switch.
+   2 slots (up to 11 with the Bigger Bag upgrade). Scroll, or 1-6 for the first six.
+   Anything new you get goes straight into your hand. Picking something up with a full bag
+   swaps it for what you're holding.
    Every pizza/can/basket is a real item that remembers who holds it and in which slot,
    so everyone's inventory looks the same on every machine. Friends see what's in your hand.
 
@@ -116,11 +118,13 @@ G. DELIVERY (house_door.gd, game_state.gd)
    Finishing an order adds its delivery fee (farther = more) and a random speed tip (faster =
    bigger odds).
 
-H. UPGRADES (upgrade_station.gd)
+H. UPGRADES AND THE BAT (upgrade_station.gd, item_shop.gd)
    Right wall of the shop. Personal upgrades, paid from team money; plaques show YOUR prices.
+   Next to the cooler: a BASEBALL BAT for $100 (team money). Long, wide swing that hits
+   everything in its arc; a full swing sends a monster ~30m (a full punch: ~6m).
 
 I. THE NIGHT (night_cycle.gd, punch_clock.gd)
-   NIGHT (13 min, 8 PM -> 1:30 AM): sign says OPEN, calls come in. A third of the monsters
+   NIGHT (10 min, 8 PM -> 1:30 AM): sign says OPEN, calls come in. A third of the monsters
      are awake at opening, all of them by last call, and they get faster with sharper noses.
      Later nights start meaner.
    LAST CALL (2 min): bell, red sky, radio warning, sign flips to CLOSED, the terminal stops
@@ -138,7 +142,7 @@ J. HEALTH, DOWN, REVIVE (player.gd, stall.gd)
    through walls, friends get a red compass marker, and monsters lose interest in you.
    A friend holds E on you for 3s -> back up with 35 health.
    Nobody comes in 30s (8s solo), or you hold E to give up -> the toilet flushes and you step
-   out of the BATHROOM STALL (shop's right wall). Everything you carried is gone and the team
+   out of the BATHROOM STALL (set into the shop's left wall). Everything you carried is gone and the team
    pays a $25 hospital bill.
 
 
@@ -152,7 +156,9 @@ game_state.gd      Host-owned rules: orders, clock, team money, deliveries, upgr
 order_screen.gd    The order terminal and the kitchen screen (one script, two modes).
 night_cycle.gd     Host-owned shift clock: phases, monster danger, radio lines, clock-in.
 punch_clock.gd     The punch clock and the wall clock above it.
-stall.gd           The bathroom stall you respawn from.
+stall.gd           The bathroom stall you respawn from (the toilet flushes on E, too).
+shop_doors.gd      The front double doors (swing open for anyone nearby, worked out locally).
+item_shop.gd       A wall display that sells one item (the bat).
 player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
                    footsteps you hear from friends, upgrade effects.
 combat.gd          Charged punch/swing/throw and who gets hit.
@@ -192,6 +198,7 @@ Night sky colors ................ world.gd: SKY_NORMAL, SKY_LAST_CALL, SKY_DEEP
 Health, revive, bleed-out ....... player.gd: HEALTH_MAX, SHOP_HEAL, BLEED_TIME*, REVIVE_*
 Bite damage to players .......... shambler.gd: BITE_HURT
 Hospital bill ................... world.gd: HOSPITAL_BILL
+Bat stats ....................... item.gd: weapon(), throw_stats(); price in world.tscn (BatShop)
 Upgrade names/prices ............ game_state.gd: UPGRADES (effects: player.gd apply_upgrades)
 Oven / fryer timing ............. cook_station.gd: TIMES
 Customer animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _play_visit

@@ -10,9 +10,24 @@ var chevron: Node3D ## floating marker over the porch, shown while this house ha
 
 const CHEVRON_POS := Vector3(0, 3.45, 4.6)
 var _t := 0.0
+var _active := false # has a taken order
+var _visit := false # the customer is at the door: keep the light on until they're back inside
 
 
 func set_active(active: bool) -> void:
+	_active = active
+	_show()
+
+
+## The door calls this around the customer's visit, so the porch light doesn't click off while
+## they're still leaning out.
+func set_visit(on: bool) -> void:
+	_visit = on
+	_show()
+
+
+func _show() -> void:
+	var active := _active or _visit
 	var energy := 3.0 if active else idle_energy
 	porch_light.light_energy = energy
 	porch_light.visible = energy > 0.0

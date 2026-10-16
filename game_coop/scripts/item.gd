@@ -25,6 +25,7 @@ const HIT_SPEED := 4.0 # a thrown item must be going at least this fast to count
 const PIZZA_THROW_DAMAGE := Vector2(3.0, 15.0) # % lost when a thrown pizza lands: tap -> full charge
 const PIZZA_SWING_DAMAGE := 15.0 # % lost when you hit something with it
 const FIRST_PERSON_SCALE := 0.6 # held items look smaller in your own hands, like the POC
+const BAT_TILT := Vector3(-0.5, 0, 0.25) # the bat leans forward and in, resting on your shoulder
 const CLINK := preload("res://audio/clink.wav")
 const THUD := preload("res://audio/thud.wav")
 const HITMARKER := preload("res://audio/hitmarker.wav")
@@ -93,6 +94,8 @@ func describe() -> String:
 			return pizza().describe()
 		"sticks":
 			return "Frozen Mozzarella Sticks" if is_frozen() else "Mozzarella Sticks (%s)" % state.fry
+		"bat":
+			return "Baseball Bat"
 	return "Soda"
 
 
@@ -106,6 +109,8 @@ func short_name() -> String:
 			return "Pizza"
 		"sticks":
 			return "Frozen Sticks" if is_frozen() else "Mozz Sticks"
+		"bat":
+			return "Bat"
 	return "Soda"
 
 
@@ -116,6 +121,8 @@ func weapon() -> Dictionary:
 			return {"range": 2.3, "arc": 80.0, "force": 8.0, "stun": 1.0, "hits_all": true}
 		"sticks":
 			return {"range": 1.8, "arc": 60.0, "force": 3.0, "stun": 0.4, "hits_all": false}
+		"bat": # long, wide, and sends things flying
+			return {"range": 2.8, "arc": 95.0, "force": 14.0, "stun": 1.2, "hits_all": true}
 	return {"range": 1.9, "arc": 60.0, "force": 5.0, "stun": 0.5, "hits_all": false}
 
 
@@ -126,6 +133,8 @@ func throw_stats() -> Array:
 			return [8.0, 1.0]
 		"sticks":
 			return [5.0, 0.8]
+		"bat":
+			return [10.0, 1.2]
 	return [7.0, 1.0]
 
 
@@ -146,6 +155,14 @@ func _rebuild() -> void:
 			var box := BoxShape3D.new()
 			box.size = Vector3(0.2, 0.08, 0.13)
 			_shape.shape = box
+		"bat":
+			mass = 0.9
+			_build_bat()
+			var cap := CapsuleShape3D.new()
+			cap.radius = 0.045
+			cap.height = 0.84
+			_shape.shape = cap
+			_shape.rotation = BAT_TILT
 		_:
 			mass = 0.35
 			var mesh := CylinderMesh.new()
@@ -184,6 +201,40 @@ func _build_sticks() -> void:
 	for i in 4:
 		var mi := _add_mesh(stick, Vector3(0, 0.022 + (i % 2) * 0.012, -0.045 + i * 0.03))
 		mi.rotation.z = PI / 2.0
+
+
+## A wooden bat, handle at the grip, barrel up and forward over your shoulder when held.
+func _build_bat() -> void:
+	var pivot := Node3D.new()
+	pivot.rotation = BAT_TILT
+	_visual.add_child(pivot)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.72, 0.5, 0.28)
+	var barrel := CylinderMesh.new()
+	barrel.top_radius = 0.045
+	barrel.bottom_radius = 0.022
+	barrel.height = 0.55
+	barrel.radial_segments = 10
+	barrel.material = wood
+	var handle := CylinderMesh.new()
+	handle.top_radius = 0.022
+	handle.bottom_radius = 0.016
+	handle.height = 0.3
+	handle.radial_segments = 8
+	var tape := StandardMaterial3D.new()
+	tape.albedo_color = Color(0.1, 0.1, 0.1)
+	handle.material = tape
+	var knob := CylinderMesh.new()
+	knob.top_radius = 0.028
+	knob.bottom_radius = 0.028
+	knob.height = 0.025
+	knob.radial_segments = 8
+	knob.material = tape
+	for part in [[barrel, 0.145], [handle, -0.28], [knob, -0.43]]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = part[0]
+		mi.position.y = part[1]
+		pivot.add_child(mi)
 
 
 func _add_mesh(mesh: Mesh, pos: Vector3) -> MeshInstance3D:
@@ -226,7 +277,10 @@ func _process(_delta: float) -> void:
 func get_prompt(p: Player) -> String:
 	if holder != 0:
 		return ""
-	return "[E] Pick up %s" % describe() if p.has_room() else "%s (inventory full)" % describe()
+	if p.has_room():
+		return "[E] Pick up %s" % describe()
+	var held := p.held_item()
+	return "[E] Swap %s for %s" % [held.short_name(), describe()] if held else "%s (inventory full)" % describe()
 
 
 func interact(p: Player) -> void:
@@ -236,14 +290,31 @@ func interact(p: Player) -> void:
 
 # --- Host: giving, stashing, changing ------------------------------------------------
 
-## Host only. Puts this item in a player's inventory (preferred slot if free). False if no room.
-func give_to(p: Player, preferred_slot: int) -> bool:
+## Host only. Puts this item in a player's inventory (preferred slot if free) and puts it in
+## their hand. With `swap`, a full bag drops what's in the preferred slot to make room.
+## False if there's no room.
+func give_to(p: Player, preferred_slot: int, swap := false, swap_drop_at := Vector3.INF) -> bool:
 	var slot := p.free_slot(preferred_slot)
+	if slot == -1 and swap and preferred_slot >= 0 and preferred_slot < p.slot_count:
+		var old: Item = p.inventory()[preferred_slot]
+		if old:
+			old.drop_at(swap_drop_at if swap_drop_at != Vector3.INF else p.global_position + Vector3.UP * 0.4)
+			slot = preferred_slot
 	if slot == -1:
 		return false
 	holder_slot = slot
 	holder = p.name.to_int()
+	p.hold_slot.rpc_id(holder, slot) # the owner picks which slot is in hand
 	return true
+
+
+## Host only. Back into the world, at rest.
+func drop_at(at: Vector3, yaw := 0.0) -> void:
+	holder = 0
+	global_position = at
+	global_rotation = Vector3(0, yaw, 0)
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
 
 
 ## Host only. Hides it inside an oven/fryer.
@@ -316,7 +387,7 @@ func request_pickup(preferred_slot: int) -> void:
 		return # someone else got there first
 	var p := World.instance.player(_sender())
 	if p and p.global_position.distance_to(global_position) <= PICKUP_RANGE:
-		give_to(p, preferred_slot)
+		give_to(p, preferred_slot, true, global_position + Vector3.UP * 0.2) # full bag: swap places
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -326,11 +397,7 @@ func request_drop(at: Vector3, yaw: float) -> void:
 	var p := World.instance.player(holder)
 	if p and p.global_position.distance_to(at) > DROP_RANGE:
 		at = p.global_position + Vector3.UP * 0.25 # don't trust far-away drop spots
-	holder = 0
-	global_position = at
-	global_rotation = Vector3(0, yaw, 0)
-	linear_velocity = Vector3.ZERO
-	angular_velocity = Vector3.ZERO
+	drop_at(at, yaw)
 
 
 ## `charge` 0 = tap lob, 1 = full-power throw.

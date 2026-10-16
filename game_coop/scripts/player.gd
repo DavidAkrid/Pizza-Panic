@@ -180,12 +180,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Applies this player's upgrade levels (called on every machine whenever they change).
 func apply_upgrades(levels: Dictionary) -> void:
-	speed_mult = 1.0 + 0.1 * levels.get("shoes", 0)
+	speed_mult = 1.0 + 0.06 * levels.get("shoes", 0)
 	punch_mult = 1.0 + 0.3 * levels.get("knuckles", 0)
 	var fl: int = levels.get("flashlight", 0)
 	flashlight.spot_range = 20.0 + 8.0 * fl
-	flashlight.spot_angle = 28.0 + 6.0 * fl
-	flashlight.light_energy = 3.0 + 1.0 * fl
+	flashlight.spot_angle = 28.0 + 4.0 * fl
+	flashlight.light_energy = 3.0 + 0.6 * fl
 	var new_max: float = STAMINA_MAX * (1.0 + 0.3 * levels.get("energy", 0))
 	if new_max > stamina_max:
 		stamina = new_max # topped up on purchase
@@ -252,6 +252,13 @@ func select_slot(i: int) -> void:
 	if i >= 0 and i < slot_count and i != active_slot:
 		combat.cancel()
 		active_slot = i
+
+
+## Sent by the host when you get a new item: it goes in your hand.
+@rpc("any_peer", "call_local", "reliable")
+func hold_slot(i: int) -> void:
+	if is_local() and multiplayer.get_remote_sender_id() <= 1:
+		select_slot(i)
 
 
 ## E with nothing in front of you: set the held item down at your feet.

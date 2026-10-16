@@ -25,8 +25,8 @@ const SPEED_TIP_MAX := 8 ## the faster the delivery, the better the odds of a bi
 const NOTE_CHANCE := 0.35
 ## Deep night special orders: rare, flash red on the terminal, pay SPECIAL_MULT times everything.
 const SPECIAL_MULT := 3
-const SPECIAL_GAP := Vector2(45, 75)
-const MAX_PENDING_SPECIAL := 2
+const SPECIAL_GAP := Vector2(90, 150)
+const MAX_PENDING_SPECIAL := 1
 const SPECIAL_NOTES := [
 	"I know it's late. I'll pay. PLEASE.",
 	"don't mind the noises",
@@ -55,11 +55,11 @@ const DELIVERY_RANGE := 4.5
 ## Shop wall upgrades: personal, paid from team money. One price per level; effects live in
 ## Player.apply_upgrades.
 const UPGRADES := {
-	"shoes": {"name": "Running Shoes", "effect": "+10% move speed", "costs": [30, 60, 100]},
-	"bag": {"name": "Bigger Bag", "effect": "+1 inventory slot", "costs": [50, 100, 150, 200]},
-	"knuckles": {"name": "Brass Knuckles", "effect": "+30% punch power", "costs": [40, 80, 120]},
-	"flashlight": {"name": "Better Flashlight", "effect": "brighter, wider, further", "costs": [25, 60]},
-	"energy": {"name": "Energy Drink", "effect": "+30% stamina", "costs": [30, 60, 90]},
+	"shoes": {"name": "Running Shoes", "effect": "+6% move speed", "costs": [30, 60, 100, 150, 210, 280, 360, 450]},
+	"bag": {"name": "Bigger Bag", "effect": "+1 inventory slot", "costs": [50, 100, 150, 200, 260, 330, 410, 500, 600]},
+	"knuckles": {"name": "Brass Knuckles", "effect": "+30% punch power", "costs": [40, 80, 120, 170, 230, 300, 380, 470]},
+	"flashlight": {"name": "Better Flashlight", "effect": "brighter, wider, further", "costs": [25, 60, 100, 150, 210, 280, 360]},
+	"energy": {"name": "Energy Drink", "effect": "+30% stamina", "costs": [30, 60, 90, 130, 180, 240, 310, 390]},
 }
 const KACHING := preload("res://audio/kaching.wav")
 
@@ -466,6 +466,11 @@ func apply_all_upgrades() -> void:
 		return
 	for p: Player in World.instance.players.get_children():
 		p.apply_upgrades(upgrades.get(str(p.name), {}))
+
+
+## Host: a message for one player (with the cash-register sound if they bought something).
+func notify(id: int, text: String, purchased := false) -> void:
+	_tell.rpc_id(id, text, purchased)
 
 
 @rpc("authority", "call_local", "reliable")

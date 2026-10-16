@@ -169,7 +169,8 @@ func _build_slots(count: int) -> void:
 	_slot_boxes.clear()
 	_slot_labels.clear()
 	_slot_flash.clear()
-	var slot_size := SLOT_SIZE if count <= 3 else Vector2(52, SLOT_SIZE.y) # narrower once upgraded
+	# Narrower once upgraded, so even a maxed-out bag fits across the screen.
+	var slot_size := SLOT_SIZE if count <= 3 else Vector2(minf(52.0, (620.0 - (count - 1) * SLOT_GAP) / count), SLOT_SIZE.y)
 	var x := 632.0 - count * slot_size.x - (count - 1) * SLOT_GAP
 	for i in count:
 		var box := Panel.new()

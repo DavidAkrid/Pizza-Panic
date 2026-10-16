@@ -8,7 +8,7 @@ extends Node
 
 enum Phase { NIGHT, LAST_CALL, DEEP_NIGHT, TIME_SKIP }
 
-const NIGHT_LENGTH := 13.0 * 60.0 ## normal play
+const NIGHT_LENGTH := 10.0 * 60.0 ## normal play
 const LAST_CALL_LENGTH := 120.0 ## warning before the deep night
 const SKIP_LENGTH := 6.0 ## the wall clock spinning to the next night
 # The wall clock: NIGHT + LAST CALL run 8 PM -> 2 AM. In the deep night it creeps to 3 AM and stops.

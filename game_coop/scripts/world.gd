@@ -347,7 +347,8 @@ func _tick_cold_pizzas(delta: float) -> void:
 
 ## Shop footprint (plus a buffer outside the door). Used by the host, e.g. monsters never enter.
 static func is_in_shop(pos: Vector3) -> bool:
-	return pos.x > -5.6 and pos.x < 5.6 and pos.z > -0.8 and pos.z < 8.6
+	var stall := pos.x > -6.3 and pos.x <= -5.6 and pos.z > 1.15 and pos.z < 2.75 # set into the left wall
+	return stall or (pos.x > -5.6 and pos.x < 5.6 and pos.z > -0.8 and pos.z < 8.6)
 
 
 # --- Inside vs. outside (this machine only) -------------------------------------
