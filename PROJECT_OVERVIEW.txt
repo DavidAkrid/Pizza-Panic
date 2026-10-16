@@ -132,6 +132,15 @@ I. THE NIGHT (night_cycle.gd, punch_clock.gd)
      plays (~6s: wall clock spins, the red drains), then the next night opens.
    No quota, no game over.
 
+J. HEALTH, DOWN, REVIVE (player.gd, stall.gd)
+   100 health. A monster bite takes 25 (and still bites your pizza). Health refills slowly
+   inside the shop. At 0 you're DOWN: red screen, you crawl, a red HELP! shows over you
+   through walls, friends get a red compass marker, and monsters lose interest in you.
+   A friend holds E on you for 3s -> back up with 35 health.
+   Nobody comes in 30s (8s solo), or you hold E to give up -> the toilet flushes and you step
+   out of the BATHROOM STALL (shop's right wall). Everything you carried is gone and the team
+   pays a $25 hospital bill.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. THE SCRIPTS
@@ -143,6 +152,7 @@ game_state.gd      Host-owned rules: orders, clock, team money, deliveries, upgr
 order_screen.gd    The order terminal and the kitchen screen (one script, two modes).
 night_cycle.gd     Host-owned shift clock: phases, monster danger, radio lines, clock-in.
 punch_clock.gd     The punch clock and the wall clock above it.
+stall.gd           The bathroom stall you respawn from.
 player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
                    footsteps you hear from friends, upgrade effects.
 combat.gd          Charged punch/swing/throw and who gets hit.
@@ -179,6 +189,9 @@ Radio lines ..................... night_cycle.gd: RADIO_OPEN, RADIO_LAST_CALL, R
 How monsters ramp up ............ night_cycle.gd: danger(); shambler.gd: _is_awake(), _think()
 Deep night specials ............. game_state.gd: SPECIAL_MULT, SPECIAL_GAP, SPECIAL_NOTES
 Night sky colors ................ world.gd: SKY_NORMAL, SKY_LAST_CALL, SKY_DEEP
+Health, revive, bleed-out ....... player.gd: HEALTH_MAX, SHOP_HEAL, BLEED_TIME*, REVIVE_*
+Bite damage to players .......... shambler.gd: BITE_HURT
+Hospital bill ................... world.gd: HOSPITAL_BILL
 Upgrade names/prices ............ game_state.gd: UPGRADES (effects: player.gd apply_upgrades)
 Oven / fryer timing ............. cook_station.gd: TIMES
 Customer animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _play_visit

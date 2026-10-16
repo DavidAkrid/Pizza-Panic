@@ -278,6 +278,28 @@ def neon_buzz():
     return lowpass(out, 1800)
 
 
+def flush():
+    """Toilet flush: a lever clunk, a rushing swirl that drains away, a last gurgle."""
+    rng = random.Random(31)
+    n = int(RATE * 2.6)
+    raw = [rng.uniform(-1, 1) for _ in range(n)]
+    y, out = 0.0, []
+    for i in range(n):
+        t = i / RATE
+        swirl = 0.5 + 0.5 * math.sin(2 * math.pi * (3.0 + t * 2.0) * t)  # swirling wobble
+        cutoff = 700 + 1600 * math.exp(-t * 0.9) * swirl
+        a = 1.0 - math.exp(-2.0 * math.pi * cutoff / RATE)
+        y += a * (raw[i] - y)
+        env = min(t / 0.15, 1.0) * math.exp(-max(t - 0.6, 0.0) * 1.6)
+        s = y * 2.2 * env
+        if 2.1 < t < 2.4:  # gurgle
+            s += math.sin(2 * math.pi * (180 + 120 * math.sin(2 * math.pi * 18 * t)) * t) * 0.3 * math.sin(math.pi * (t - 2.1) / 0.3)
+        if t < 0.06:  # lever clunk
+            s += math.sin(2 * math.pi * 140 * t) * math.exp(-t * 60) * 1.5
+        out.append(s)
+    return out
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for k in range(4):
@@ -297,3 +319,4 @@ if __name__ == "__main__":
     write("punch_clock.wav", punch_clock())
     write("radio_static.wav", radio_static())
     write("neon_buzz.wav", neon_buzz())
+    write("flush.wav", flush())

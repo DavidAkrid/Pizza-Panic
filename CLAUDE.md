@@ -61,6 +61,11 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   Sync). Phase changes run `World.show_phase` on every machine (sky, sign, music); one-shot moments
   (bell, radio, punch) are RPCs. Monsters read `danger()` on the host; `asleep` is synced.
   Dev tests fast-forward by setting `NightCycle.instance.phase_start` back.
+  v4 Phase A step 3 done: health/down/revive. `health` + `downed` live on the Player, owned by
+  its machine (synced); the host sends `Player.hurt` RPCs. Revive = the reviver holds E
+  (`_tick_hold`), then `revive` RPC to the downed player's owner. Respawn = owner asks
+  `World.request_respawn` (host frees their items, bills the team) -> `stall.play_respawn` +
+  `Player.respawn_at`. Dev tests can hold keys with `Input.action_press("interact")`.
   Dev tests: never let the host's checks finish before the client's (the client reloads to the
   menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever

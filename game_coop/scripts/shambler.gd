@@ -20,6 +20,7 @@ const RECOVER_TIME := 0.9 # pause after a bite so the player can get away
 const BITE_PUSH := 9.0
 const BITE_STUN := 0.35
 const BITE_DAMAGE := 34.0 # % off the victim's pizza
+const BITE_HURT := 25.0 # off the victim's health (100): four bites and you're down
 
 ## Peer id of the player being chased, 0 = nobody. Synced: drives each player's heartbeat.
 var target_id := 0
@@ -117,16 +118,17 @@ func _think(delta: float) -> void:
 
 
 ## Keep chasing the current target while it's still fair game; otherwise pick the closest player
-## it can smell (carrying food) or see (close by). Nobody inside the shop counts.
+## it can smell (carrying food) or see (close by). Nobody inside the shop counts, and it loses
+## interest in anyone already down (the kidnapper won't, later).
 func _choose_target(senses: float) -> Player:
 	var current := World.instance.player(target_id) if target_id != 0 else null
-	if current and not World.is_in_shop(current.global_position) \
+	if current and not current.downed and not World.is_in_shop(current.global_position) \
 			and _flat_dist(current) < GIVE_UP_RANGE:
 		return current
 	var best: Player = null
 	var best_d := INF
 	for p: Player in World.instance.players.get_children():
-		if World.is_in_shop(p.global_position):
+		if p.downed or World.is_in_shop(p.global_position):
 			continue
 		var d := _flat_dist(p)
 		var detect := (SMELL_RANGE if p.carrying_food() else SIGHT_RANGE) * senses
@@ -144,6 +146,7 @@ func _bite(victim: Player) -> void:
 	push.y = 0.0
 	push = push.normalized() if push.length() > 0.01 else Vector3.FORWARD
 	victim.receive_shove.rpc_id(victim.name.to_int(), push * BITE_PUSH, BITE_STUN)
+	victim.hurt.rpc_id(victim.name.to_int(), BITE_HURT)
 	var pizza := victim.exposed_pizza()
 	if pizza:
 		pizza.damage_pizza(BITE_DAMAGE, "They got the pizza!")

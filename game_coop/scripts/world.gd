@@ -11,6 +11,7 @@ const SHAMBLER := preload("res://scenes/shambler.tscn")
 const SHOP_DOOR := Vector3(0, 2.2, -0.5)
 const COLD_DAMAGE := 1.0
 const COLD_INTERVAL := 3.0
+const HOSPITAL_BILL := 25
 
 static var instance: World
 
@@ -80,6 +81,8 @@ func _process(delta: float) -> void:
 	if me == null:
 		return
 	hud.set_stamina(me.stamina / me.stamina_max)
+	hud.set_health(me.health / Player.HEALTH_MAX)
+	hud.set_down(_down_text(me))
 	hud.set_slots(me.inventory(), me.active_slot)
 	_refresh_order_hud(me)
 	# Heartbeat only for whoever is actually being chased.
@@ -90,6 +93,16 @@ func _process(delta: float) -> void:
 			hunted = true
 			break
 	ambience.chasing = hunted
+
+
+## What the red "you're down" screen says ("" = you're fine).
+func _down_text(me: Player) -> String:
+	if not me.downed:
+		return ""
+	var wait := GameState.format_time(me.bleed_left)
+	if players.get_child_count() <= 1:
+		return "YOU'RE DOWN\nHeading for the stall in %s\nHold [E] to go now" % wait
+	return "YOU'RE DOWN\nA friend can revive you (%s)\nHold [E] to give up" % wait
 
 
 ## Taken orders, team money and compass markers, from the host-owned GameState.
@@ -108,6 +121,9 @@ func _refresh_order_hud(me: Player) -> void:
 		var house := game.find_house(o.house)
 		var hurry := left < OrderScreen.HURRY_TIME
 		hud.compass.markers.append([Compass.bearing(me.global_position, house.marker_position()), Color(1, 0.35, 0.3) if hurry else Color(1, 0.85, 0.4)])
+	for p: Player in players.get_children():
+		if p.downed and p != me: # go get them
+			hud.compass.markers.append([Compass.bearing(me.global_position, p.global_position), Color(1, 0.15, 0.15)])
 	if taken.is_empty():
 		lines.append("New orders on the terminal!" if not game.pending().is_empty() else "No orders yet.")
 		if not me.in_shop:
@@ -228,6 +244,35 @@ func _on_peer_disconnected(id: int) -> void:
 		var p := player(id)
 		if p:
 			p.queue_free()
+
+
+## Sent by a downed player who bled out or gave up. Host: whatever they carried is gone, the team
+## pays the hospital bill, and they step out of the bathroom stall.
+@rpc("any_peer", "call_local", "reliable")
+func request_respawn() -> void:
+	if not multiplayer.is_server():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	if id == 0:
+		id = 1
+	var p := player(id)
+	if p == null:
+		return
+	var lost := 0
+	for it: Item in items.get_children():
+		if it.holder == id:
+			it.queue_free()
+			lost += 1
+	var game := GameState.instance
+	var bill := mini(HOSPITAL_BILL, game.money)
+	game.money -= bill
+	game.announce.rpc("*FLUSH* %s is back at the shop.%s%s" % [
+		p.display_name(),
+		"\nHospital bill: -$%d" % bill if bill > 0 else "",
+		"\nEverything they carried is gone." if lost > 0 else ""], 4.0)
+	var stall: BathroomStall = $Shop/Stall
+	stall.play_respawn.rpc()
+	p.respawn_at.rpc_id(id, stall.spawn_position(), stall.spawn_yaw())
 
 
 ## Host only. The PlayerSpawner runs _make_player with this data on every machine.

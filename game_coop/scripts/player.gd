@@ -23,6 +23,14 @@ const FOOTSTEPS := [
 const PICKUP_SFX := preload("res://audio/pickup.wav")
 const THUD_SFX := preload("res://audio/thud.wav")
 const COLORS := [Color(0.9, 0.3, 0.25), Color(0.25, 0.55, 0.9), Color(0.3, 0.8, 0.35), Color(0.9, 0.75, 0.2)]
+const HEALTH_MAX := 100.0
+const SHOP_HEAL := 4.0 ## health per second while inside the shop
+const CRAWL_SPEED := 0.9
+const BLEED_TIME := 30.0 ## down this long without a revive -> the bathroom stall
+const BLEED_TIME_SOLO := 8.0
+const REVIVE_TIME := 3.0 ## a friend holds E this long
+const REVIVE_HEALTH := 35.0
+const GIVE_UP_TIME := 1.5 ## hold E while down to skip the wait
 
 ## Join order (0 = host). Comes in with the spawn data (World._make_player). Drives color and name.
 var slot := 0
@@ -42,7 +50,21 @@ var stamina_max := STAMINA_MAX
 var speed_mult := 1.0
 var punch_mult := 1.0
 var in_shop := false # local player only; set by the world
+## Owned by this player's machine (hits arrive as `hurt` RPCs from the host). Synced.
+var health := HEALTH_MAX
+## At 0 health you go down: crawl, wait for a friend, or bleed out to the stall. Synced.
+var downed := false:
+	set(value):
+		var fell := value and not downed
+		downed = value
+		if is_node_ready():
+			_show_downed()
+			if fell and not is_local():
+				World.instance.hud.show_message("%s is DOWN! Hold [E] on them to revive." % display_name(), 3.5)
+var bleed_left := 0.0 # owner only
 var combat: PlayerCombat
+var _hold_e := 0.0 # local: how long E has been held on a downed friend (or to give up)
+var _respawning := false # owner: asked the host for the stall, waiting
 var _exhausted := false
 var _stun := 0.0 # staggered by a shove: no control for a moment
 var _shake := 0.0
@@ -107,6 +129,8 @@ func _ready() -> void:
 	combat.name = "Combat" # same path on every machine, so its RPCs line up
 	add_child(combat)
 	combat.setup(self)
+	ray.add_exception(self) # never "aim at" your own body (it's interactable while you're down)
+	_show_downed()
 
 
 func _input(event: InputEvent) -> void:
@@ -126,6 +150,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event.is_action_pressed("flashlight"):
 		flashlight_on = not flashlight_on
+	elif downed:
+		pass # on the floor: no fighting, grabbing or juggling slots (hold E to give up: see _tick_hold)
 	elif event.is_action_pressed("slot_next"):
 		select_slot(wrapi(active_slot + 1, 0, slot_count))
 	elif event.is_action_pressed("slot_prev"):
@@ -277,6 +303,112 @@ func is_stunned() -> bool:
 	return _stun > 0.0
 
 
+# --- Health, going down, revive ----------------------------------------------------------
+
+## Sent by the host (a monster bite). Runs on YOUR machine because you own your health.
+@rpc("any_peer", "call_local", "reliable")
+func hurt(amount: float) -> void:
+	if not is_local() or multiplayer.get_remote_sender_id() > 1 or downed or _respawning:
+		return
+	health = maxf(health - amount, 0.0)
+	World.instance.hud.hit_marker()
+	if health <= 0.0:
+		_go_down()
+
+
+func _go_down() -> void:
+	downed = true
+	combat.cancel()
+	bleed_left = BLEED_TIME_SOLO if World.instance.players.get_child_count() <= 1 else BLEED_TIME
+	play_sfx(THUD_SFX, 0.6, 0.0)
+	shake(0.6)
+
+
+## Sent by the friend who revived you.
+@rpc("any_peer", "call_local", "reliable")
+func revive() -> void:
+	if not is_local() or not downed or _respawning:
+		return
+	downed = false
+	health = REVIVE_HEALTH
+	World.instance.hud.show_message("Back on your feet!", 2.0)
+
+
+## Every machine: a downed player lies on the floor with a red HELP! over them (seen through
+## walls), and can be aimed at so friends can revive them.
+func _show_downed() -> void:
+	$Body.rotation.x = -PI / 2.0 if downed else 0.0
+	$Body.position.y = 0.35 if downed else 0.875
+	head.position.y = 0.45 if downed else 1.6
+	collision_layer = 4 | 2 if downed else 4
+	var tag: Label3D = $NameTag
+	tag.text = "HELP!\n" + display_name() if downed else display_name()
+	tag.modulate = Color(1, 0.3, 0.25) if downed else Color.WHITE
+	tag.no_depth_test = downed
+	tag.visible = not is_local()
+	tag.position.y = 1.2 if downed else 2.15
+
+
+## Prompt when a friend aims at you.
+func get_prompt(p: Player) -> String:
+	if not downed:
+		return ""
+	return "Hold [E] to revive %s (%d%%)" % [display_name(), int(p._hold_e / REVIVE_TIME * 100.0)]
+
+
+func interact(_p: Player) -> void:
+	pass # reviving is a hold, handled by the reviver's _tick_hold
+
+
+## Local player, every frame: holding E either revives the downed friend in your crosshair or,
+## if you're the one down, gives up and heads for the stall.
+func _tick_hold(delta: float) -> void:
+	var target = get_interact_target()
+	var reviving: bool = not downed and target is Player and target.downed
+	if not Input.is_action_pressed("interact") or not (reviving or downed):
+		_hold_e = 0.0
+		return
+	_hold_e += delta
+	if reviving and _hold_e >= REVIVE_TIME:
+		_hold_e = 0.0
+		target.revive.rpc_id(target.name.to_int())
+	elif downed and _hold_e >= GIVE_UP_TIME:
+		_hold_e = 0.0
+		_bleed_out()
+
+
+## Owner: health comes back in the shop; down too long -> the stall.
+func _tick_health(delta: float) -> void:
+	if downed:
+		bleed_left -= delta
+		if bleed_left <= 0.0:
+			_bleed_out()
+	elif in_shop and health < HEALTH_MAX:
+		health = minf(health + SHOP_HEAL * delta, HEALTH_MAX)
+
+
+func _bleed_out() -> void:
+	if _respawning:
+		return
+	_respawning = true
+	World.instance.request_respawn.rpc_id(1)
+
+
+## Sent by the host once your stuff is gone and the bill is paid: step out of the stall.
+@rpc("any_peer", "call_local", "reliable")
+func respawn_at(pos: Vector3, yaw: float) -> void:
+	if not is_local() or multiplayer.get_remote_sender_id() > 1:
+		return
+	global_position = pos
+	velocity = Vector3.ZERO
+	rotation.y = yaw
+	head.rotation.x = 0.0
+	health = HEALTH_MAX
+	downed = false
+	_respawning = false
+	_hold_e = 0.0
+
+
 func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
@@ -284,6 +416,8 @@ func shake(amount: float) -> void:
 func _physics_process(delta: float) -> void:
 	if is_local():
 		combat.tick(delta)
+		_tick_hold(delta)
+		_tick_health(delta)
 		_move(delta)
 	else:
 		_puppet_footsteps(delta)
@@ -292,7 +426,7 @@ func _physics_process(delta: float) -> void:
 func _move(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	elif Input.is_action_just_pressed("jump") and _stun <= 0.0:
+	elif Input.is_action_just_pressed("jump") and _stun <= 0.0 and not downed:
 		velocity.y = JUMP_VELOCITY
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -302,7 +436,7 @@ func _move(delta: float) -> void:
 		_exhausted = true
 	elif stamina >= STAMINA_RECOVER_AT:
 		_exhausted = false
-	var sprinting := Input.is_action_pressed("sprint") and input != Vector2.ZERO and not _exhausted
+	var sprinting := Input.is_action_pressed("sprint") and input != Vector2.ZERO and not _exhausted and not downed
 	if sprinting:
 		stamina = maxf(stamina - delta, 0.0)
 	else:
@@ -313,7 +447,7 @@ func _move(delta: float) -> void:
 		velocity.x = lerpf(velocity.x, 0.0, 2.0 * delta) # slide out of the shove
 		velocity.z = lerpf(velocity.z, 0.0, 2.0 * delta)
 	else:
-		var speed := (SPRINT_SPEED if sprinting else WALK_SPEED) * speed_mult
+		var speed := CRAWL_SPEED if downed else (SPRINT_SPEED if sprinting else WALK_SPEED) * speed_mult
 		var w := clampf(ACCEL * delta, 0.0, 1.0)
 		velocity.x = lerpf(velocity.x, dir.x * speed, w)
 		velocity.z = lerpf(velocity.z, dir.z * speed, w)

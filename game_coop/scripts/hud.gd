@@ -10,6 +10,10 @@ var prompt_label: Label
 var message_label: Label
 var compass: Compass
 var stamina_bar: ColorRect
+var health_bar: ColorRect
+var _health_back: ColorRect
+var _down_overlay: ColorRect
+var _down_label: Label
 var _message_time := 0.0
 var _slot_boxes: Array[Panel] = []
 var _slot_flash: Array[float] = []
@@ -55,6 +59,31 @@ func _ready() -> void:
 	_marker.draw.connect(_draw_marker)
 	add_child(_marker)
 
+	# You're down: the screen goes red, with what to do about it.
+	_down_overlay = ColorRect.new()
+	_down_overlay.color = Color(0.6, 0.0, 0.0, 0.35)
+	_down_overlay.size = Vector2(640, 360)
+	_down_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_down_overlay.visible = false
+	add_child(_down_overlay)
+	move_child(_down_overlay, 0) # under everything else
+	_down_label = _label(Vector2(120, 140), Vector2(400, 60), 14, HORIZONTAL_ALIGNMENT_CENTER)
+	_down_label.modulate = Color(1, 0.8, 0.8)
+
+	# Health: bottom left, only once you're hurt.
+	_health_back = ColorRect.new()
+	_health_back.color = Color(0, 0, 0, 0.5)
+	_health_back.position = Vector2(8, 340)
+	_health_back.size = Vector2(102, 6)
+	_health_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_health_back)
+	health_bar = ColorRect.new()
+	health_bar.color = Color(0.9, 0.2, 0.2)
+	health_bar.position = Vector2(9, 341)
+	health_bar.size = Vector2(100, 4)
+	health_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(health_bar)
+
 	stamina_bar = ColorRect.new()
 	stamina_bar.color = Color(0.9, 0.9, 0.9, 0.7)
 	stamina_bar.position = Vector2(270, 318)
@@ -97,6 +126,19 @@ func _draw_marker() -> void:
 	var c := Color(1, 0.25, 0.2, clampf(_marker_t / MARKER_TIME, 0.0, 1.0))
 	for d: Vector2 in [Vector2(1, 1), Vector2(1, -1), Vector2(-1, 1), Vector2(-1, -1)]:
 		_marker.draw_line(d * 3.0, d * 7.0, c, 1.5)
+
+
+func set_health(ratio: float) -> void:
+	var hurt := ratio < 0.999
+	health_bar.visible = hurt
+	_health_back.visible = hurt
+	health_bar.size.x = 100.0 * ratio
+
+
+## "" hides the red screen.
+func set_down(text: String) -> void:
+	_down_overlay.visible = text != ""
+	_down_label.text = text
 
 
 func set_stamina(ratio: float) -> void:
