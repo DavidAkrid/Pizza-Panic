@@ -167,11 +167,17 @@ func request_hit(force: Vector3, stun: float) -> void:
 		knock_back(force, stun)
 
 
-## A third of them are up at opening, all of them by last call. Monsters already chasing stay up.
+## Deep night extras (World.spawn_deep_monsters): always awake, gone when the night ends.
+func is_deep() -> bool:
+	return name.begins_with("deep_")
+
+
+## A third of the regulars are up at opening, all of them by last call. Monsters already
+## chasing stay up.
 func _is_awake(danger: float) -> bool:
-	if target_id != 0:
+	if target_id != 0 or is_deep():
 		return true
-	var total := get_parent().get_child_count()
+	var total := World.instance.hood_monster_count()
 	var index := name.trim_prefix("monster_").to_int()
 	return index < ceili(total * clampf(0.35 + 0.65 * danger, 0.0, 1.0))
 

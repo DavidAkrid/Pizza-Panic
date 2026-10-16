@@ -12,6 +12,7 @@ const SHOP_DOOR := Vector3(0, 2.2, -0.5)
 const COLD_DAMAGE := 1.0
 const COLD_INTERVAL := 3.0
 const HOSPITAL_BILL := 25
+const DEEP_MONSTERS := 6 ## extra shamblers that only come out in the deep night
 
 static var instance: World
 
@@ -364,6 +365,28 @@ func _spawn_monsters() -> void:
 	var hood := get_node("Neighborhood") as Neighborhood
 	for i in hood.spawn_points.size():
 		$MonsterSpawner.spawn({"name": "monster_%d" % i, "pos": hood.spawn_points[i]})
+
+
+## The regular shamblers (one per spawn spot), not counting deep night extras.
+func hood_monster_count() -> int:
+	return (get_node("Neighborhood") as Neighborhood).spawn_points.size()
+
+
+## Host only: the deep night brings extra shamblers, crawling out near the usual spawn spots.
+func spawn_deep_monsters() -> void:
+	var hood := get_node("Neighborhood") as Neighborhood
+	var spots := hood.spawn_points.duplicate()
+	spots.shuffle()
+	for i in DEEP_MONSTERS:
+		var at: Vector3 = spots[i % spots.size()] + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
+		$MonsterSpawner.spawn({"name": "deep_%d" % i, "pos": at})
+
+
+## Host only: the night's over; the extras go back wherever they came from.
+func despawn_deep_monsters() -> void:
+	for m: Shambler in $Monsters.get_children():
+		if m.is_deep():
+			m.queue_free() # the MonsterSpawner removes it everywhere
 
 
 func _make_monster(data: Dictionary) -> Shambler:

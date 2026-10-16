@@ -129,7 +129,8 @@ I. THE NIGHT (night_cycle.gd, punch_clock.gd)
      Later nights start meaner.
    LAST CALL (2 min): bell, red sky, radio warning, sign flips to CLOSED, the terminal stops
      taking calls (waiting calls are dropped; taken orders still count).
-   DEEP NIGHT: darker red, thicker fog, sour music, every monster up and faster (still slower
+   DEEP NIGHT: darker red, thicker fog, sour music, 6 EXTRA shamblers crawl out (gone again
+     after the night), every monster up and faster (still slower
      than a sprint). The odd red SPECIAL order (x3 pay) still rings. The wall clock stops at 3 AM.
      Everyone inside punches the PUNCH CLOCK (front wall, right of the door); leaving the shop
      clocks you back out. Whole crew in -> undelivered orders are cancelled and the TIME SKIP

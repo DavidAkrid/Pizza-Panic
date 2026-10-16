@@ -127,6 +127,7 @@ func _process(_delta: float) -> void:
 		Phase.LAST_CALL:
 			if elapsed() >= LAST_CALL_LENGTH:
 				_set_phase(Phase.DEEP_NIGHT)
+				World.instance.spawn_deep_monsters()
 				_radio.rpc(RADIO_DEEP.pick_random())
 		Phase.DEEP_NIGHT:
 			_check_clocked_in()
@@ -173,6 +174,7 @@ func _check_clocked_in() -> void:
 	if clocked_in.size() > 0 and clocked_in.size() >= crew_size():
 		skip_from = hour()
 		GameState.instance.end_night()
+		World.instance.despawn_deep_monsters()
 		_set_phase(Phase.TIME_SKIP)
 
 
