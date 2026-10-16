@@ -1,0 +1,354 @@
+Title: Pizza Panic
+Version: 4
+Date: 2026-10-15
+Replaces: v3 (kept for history)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE PITCH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A first-person co-op "friendslop" game for 1-4 players.
+
+You roll into Monsterville as a nobody and get handed the keys to a run-down pizza shop at
+the edge of a town where the sun never rises. Cook. Deliver. Survive. Help the residents,
+push back the dark one street at a time, and earn your way across town.
+
+The end goal of the whole game: BRING BACK THE MORNING.
+
+The game is the platform. The experience with your friends is the point.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PILLARS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. FRIENDS ARE THE FUN
+   Systems exist to create stories, chaos and funny moments between players.
+   If a feature doesn't make friends yell, laugh, argue or help each other, question it.
+
+2. SILLY BUT SCARY
+   Real threat, never fully serious. Refs: Lethal Company, REPO, Content Warning.
+
+3. YOU HAVE A JOB TO DO
+   You're out there to deliver pizza. The job is what pushes you out the door.
+
+4. SAFE INSIDE, NIGHTMARE OUTSIDE
+   The shop is warm, lit and safe. Outside is dark. The core feeling is:
+   safe shop -> dread outside -> relief back inside.
+
+5. A NOBODY BECOMES THE TOWN'S HERO
+   Progress is permanent and visible. Streets you've lit stay lit, neighbors you've helped
+   remember you, and the town physically changes as you save it. Ref: Schedule I.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- First-person 3D, online co-op, 1-4 players (host + 3)
+- Godot 4 (GDScript). Host-owned world, see game_coop/ and PROJECT_OVERVIEW.txt
+- Look: low-poly, low-res, darkness, fog, sound
+- Platform: PC (Steam), itch.io demo first. Steam lobbies/invites later.
+- ONE big continuous town. No loading screens.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STORY & SETTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Monsterville: a town stuck in endless night. The morning hasn't come in years.
+- The pizza shop is the one place still open, and its crew the only people out after dark.
+- Residents (human and otherwise) are hiding in their homes. They still order pizza.
+- Each neighborhood has named residents with problems. Helping them earns trust, tools,
+  and access to the rest of town.
+- Saving neighborhoods weakens the night. The final story chain brings back the sunrise.
+- The shop radio is the narrator: night announcements, jokes, story hints
+  ("Gooood evening, Monsterville! It's night 5, and the moon's still stuck...").
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE NIGHT CYCLE (one shift)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+It is always night. There is no daytime to "play it safe" in.
+
+1. OPEN
+   The neon sign buzzes to OPEN, the radio announces the night, orders start coming in.
+
+2. NIGHT (normal play, ~15 min)
+   Take orders, cook, deliver, do odd jobs. The night gets gradually harder as it goes:
+   more monsters awake, more aggressive.
+
+3. LAST CALL (~2 min warning)
+   Clock tower bell, the sky turns red, the radio warns everyone. Get back to the shop.
+   The sign flips to CLOSED automatically; the door locks behind the last one in.
+
+4. DEEP NIGHT
+   OUTSIDE: a nightmare. A nastier, random monster pool comes out (Lethal-style: different
+   each night). The kidnapper hunts. Deep night SPECIAL ORDERS appear: huge pay, huge risk.
+   "Is it worth it? Is it safe? Can we make it?"
+   INSIDE: the break. Count money, restock, buy, prep for tomorrow, read mail, check the
+   town map, play the arcade machine. Sometimes something knocks on the door. Don't open it.
+
+5. CLOCK IN -> NEXT NIGHT
+   Every player punches their time card at the punch clock ("2/3 clocked in").
+   Only works with everyone inside. When the last person clocks in, time skips in place
+   (no fade to black): the wall clock spins, the red sky drains, the horror sounds fade,
+   the radio crackles on, the sign buzzes to OPEN. ~5-8 seconds.
+
+No quota. No game over. A bad night means less money and progress, never a reset.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ORDERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ORDER TERMINAL (front counter)
+- A chunky green CRT screen. Orders arrive on their own with a beep, at a pace set by
+  reputation and time of night. Several wait at once.
+- Each shows: address + neighborhood, rough distance, items, pay, an expiry countdown,
+  and sometimes a NOTE in the customer's voice ("DO NOT KNOCK. BABY IS SLEEPING.
+  LEAVE ON PORCH." / "extra olives or else"). Notes carry personality and special requests.
+- Deep night special orders flash red.
+- Walk up, press E to accept. Anyone can accept. No limit: the real limit is what the
+  team can physically cook and carry. Overcommitting is your own fault.
+
+EXPIRY & PENALTIES
+- Ignored orders just expire. No real penalty (maybe a tiny dip for ignoring lots).
+- Accepted but not delivered in time: reputation penalty in that neighborhood.
+
+KITCHEN SCREEN (where the chalkboard is now)
+- Big and clear. Accepted orders appear automatically with their countdowns.
+- The cook checks off a whole order as "ready to go". Delivered orders clear off.
+- The terminal is where you DECIDE; the kitchen screen is where you WORK.
+
+DELIVERY & PAY
+- Knock; the customer peeks out and takes the order from everyone near the door
+  (team deliveries, partial deliveries allowed). (Exists in game_coop.)
+- Base pay x accuracy x cooking quality x condition.
+- Tips: random, but faster + better deliveries push the odds toward bigger tips.
+- HUD + compass show accepted orders.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE SHOP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COOKING (exists): dough, toppings, oven, boxes, freezer, fryer, soda cooler, trash.
+
+RESTOCKING
+- Ingredients run out (bins visibly empty). Restock costs a little money.
+- Gives the deep night break a purpose: get the shop ready for tomorrow.
+
+PREP
+- Pre-make dough, set up the kitchen during the break -> a faster next night.
+
+THE SUPPLY CATALOG (one supplier for everything, by the back door)
+- Order during the break; it's at the back door when the next night opens.
+  (Who delivers it in Monsterville? A running radio joke.)
+- KITCHEN: ingredients, boxes, frozen foods, soda, new recipes/toppings.
+- REPAIR & UTILITY: lightbulbs, fuses, duct tape, flashlight batteries, flares,
+  bait slices, air horn, traps (roach motel, bear trap), AD POSTERS.
+- GEAR: insulated delivery bag (slower cooling), weapons (rolling pin, pizza peel,
+  frying pan), protection (padded jacket, hard hat), first aid kits.
+- TRAVEL: skateboard, bike, van, gas.
+- SHOP: new/better stations, decorations, arcade games, jukebox songs.
+- COSMETICS: hats, aprons, uniforms, shop decor.
+
+THE SHOP GROWS
+- Second oven, bigger fridge, faster stations, better ingredients: better food, faster.
+- LATE GAME: buy a second shop deeper in town (a forward base).
+- LATE GAME: the FOOD TRUCK, a kitchen on wheels. One cooks, one drives.
+
+EMPLOYEE AREA
+- Punch clock (ready check).
+- The LOCKER: every key tool you've unlocked is always available here (die with the
+  wrench, grab another). Cosmetics/outfits live here too.
+- Bathroom: where you respawn (see Players).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PLAYERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HEALTH & DEATH
+- Players have health. Monster bites hurt you AND your pizza.
+- At zero you go DOWN: you can crawl and call for help.
+- A teammate can REVIVE you within ~30s (upgrades make it faster / easier).
+- Not revived (or solo): you respawn at the shop by stepping out of a BATHROOM STALL
+  (toilet flush). You lose what you were carrying and pay a hospital bill.
+
+THE KIDNAPPER (deep night monster)
+- Grabs a downed or unlucky player and drags them to its lair.
+- The captive can watch, bang on the walls, and yell.
+- The team has limited time to rescue them. Fail, and the toilet flushes.
+- Forces the choice: finish the delivery, or go get your friend?
+
+COMBAT (exists)
+- Charged punch / swing / throw. Monsters take full force.
+- Friendly fire is a shove only: no damage to friends or their stuff.
+- Combat is never the point. Upgrades make you less helpless, not powerful.
+
+FOOD BUFFS (your product is the power-up)
+- Soda: stamina boost.
+- Each topping gives a buff, e.g. Pepperoni = stronger punches, Peppers (spicy) = faster,
+  Mushroom = see better in the dark, Olive = take less damage,
+  Mozzarella sticks = less stamina drain.
+- Mixed pizzas stack buffs. Better cooking = longer buffs.
+- Eat anywhere, including mid-chase (takes a couple of seconds).
+- Every pizza you eat is one you didn't deliver. A natural "cook makes buff pizzas for
+  the runners" role.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE TOWN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ONE BIG MAP
+- Starts with the block around the shop (what exists now). More neighborhoods open up
+  through story tasks and key tools (broken bridge, locked gate, collapsed tunnel).
+- Distance matters: later neighborhoods need a skateboard, bike or van to reach in time.
+
+NEIGHBORHOODS (first-pass pitches; each = monster pool + delivery twist + residents)
+- The Starter Block: shamblers. Learn the basics.
+- Graveyard Suburbs: ghosts that pass through walls but freeze when looked at.
+  One player watches while another delivers.
+- The High-Rise: deliveries go UP. Stairwell monsters; a slow, loud elevator.
+- The Swamp: fog so thick the compass glitches. Stilt shacks, boats, plank bridges.
+- The Rich Part of Town: gated mansions, guard-dog monsters, gate codes on order notes,
+  big tips.
+- The Carnival: the customer is inside a funhouse; clown monsters copy your movement.
+- Downtown: traffic as hazard and tool, rival delivery drivers.
+
+MONSTERS
+- Each neighborhood has its own monster pool.
+- Deep night adds to or replaces it with scarier monsters, random each night.
+- Lamp smashers (deep night) break streetlights. Later: light-loving monsters (giant moths).
+
+DELIVERY TWISTS (anywhere)
+- "Leave it on the porch", timed orders, giant two-person party orders, customers who are
+  monsters, orders that make monsters angrier while you carry them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SAVING A NEIGHBORHOOD (several ways it improves)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LIGHT (hands-on)
+- Buy bulbs, fix broken streetlights (needs a tool like a ladder).
+- Lit areas: monsters less likely to be there, not impossible. Deep night monsters care less.
+- Portable lanterns: placeable anywhere, pricier, can be knocked over.
+- Upkeep: bulbs flicker then burn out; lamp smashers break them.
+- The group builds its own lit safe routes. Ref: placing torches in Minecraft.
+
+REPUTATION (per neighborhood, stars)
+- Raised by good deliveries, helping residents, fixing lights, odd jobs.
+- Good rep: more orders, bigger tips, residents' story tasks open up.
+- Bad rep: fewer orders, smaller tips, rude notes on orders, story tasks pause.
+  Never a lockout: there's a floor, and you can always earn it back.
+
+STORY TASKS (milestones)
+- Residents' task chains. Example: the bridge is broken; the plumber has the tools but
+  his basement is flooded with monsters. Deliver his pizza, help him out, he gives you
+  the WRENCH (opens the bridge, better weapon, can fix things around town).
+- A neighborhood's final task (e.g. fixing its POWER BOX) lights it permanently:
+  saved for good, even lamp smashers can't undo it.
+
+AD POSTERS
+- Buy a pack (e.g. $50 for 5), put them up on poles/fences/walls.
+- That area places more orders for a few nights. Wear out over time / torn by monsters.
+- Work better under a working streetlight.
+- Later: coupon posters (faster rep), weird posters for deep night customers.
+
+ODD JOBS (quick money + rep, filler between orders)
+- Trash bags to the dumpster, roaches/pests, fixing streetlights, lost pets, lost mail,
+  small favors.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESSION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- MONEY: deliveries, tips, special orders, odd jobs ->
+  catalog, restocking, upgrades, shop growth, cosmetics, hospital bills.
+- REPUTATION (per neighborhood): orders, tips, story access.
+- KEY TOOLS (from story tasks, permanent, in the locker): open new areas, double as
+  weapons/abilities. e.g. ladder, wrench, bolt cutters, lantern, van.
+- TRAVEL LADDER: on foot -> skateboard -> bike -> van -> (late) food truck.
+- PERSONAL UPGRADES (exist): shoes, bag, knuckles, flashlight, energy drink.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CO-OP & SAVING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- The game is the HOST'S TOWN. It saves after every night.
+- The host's save also keeps each friend's upgrades, cosmetics and held items.
+- Players need a stable identity to get their stuff back: a name box on the menu for now,
+  Steam accounts later.
+- Progress is permanent. Setbacks are local (lost cargo, a bill, lost rep), never a reset.
+- 4 players max (host + 3).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHERE WE ARE (coop-v1, game_coop/)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Done: 1-4 player co-op over direct connection; the starter block; full cooking (pizza,
+sticks, soda); inventory; charged combat with friendly shoves; host-run shamblers that bite
+pizzas; shared orders with team delivery and team money; knocking + customer peek; cold
+pizza; personal upgrade wall; pause menu.
+Not yet: everything else in this doc.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUILD ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Finish each phase (playtest with friends) before starting the next.
+
+PHASE A - THE SHIFT (turns the loop into a night)
+  1. Order terminal + kitchen screen (accept/expire, notes, rep penalty hook, speed tips)
+  2. Night cycle: open, ramping night, last call, deep night, punch clock + time skip, radio
+  3. Health, going down, revive, bathroom respawn
+  4. Saving: the host's town + each player's stuff (by name)
+
+PHASE B - THE SHOP ECONOMY
+  5. Restocking + supply catalog (start with ingredients, bulbs, a few tools/items)
+  6. Food buffs (soda + toppings)
+  7. Shop upgrades (stations, decor), deep night break activities (arcade, mail, town map)
+
+PHASE C - THE TOWN FIGHTS BACK
+  8. Reputation per neighborhood (good + bad effects)
+  9. Streetlights + bulbs + lanterns, lamp smashers
+  10. Odd jobs, ad posters
+  11. Deep night monster pool + the kidnapper (rescue missions)
+
+PHASE D - THE FIRST EXPANSION (proves the "unlock the town" loop)
+  12. The plumber story chain -> the wrench -> fix the bridge
+  13. Neighborhood #2: new monster, new delivery twist, new residents
+  14. Travel: skateboard/bike for the longer trip
+
+LATER
+  - More neighborhoods, the van, second shop, food truck, light-loving monsters
+  - Steam lobbies/invites, proximity voice chat
+  - Real art and audio
+  - The final chain: bringing back the morning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RELEASE SCOPE (what ships, in order)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Everything above is the vision. This section is the contract. A new idea goes to the
+PARKING LOT below unless it replaces something already in a release.
+
+1. FREE DEMO (itch.io, then Steam Next Fest)
+   Goal: friends play it without us in the room, and it makes people wishlist.
+   - The starter block only
+   - Phase A (terminal, night cycle, health/revive, saving) + Phase B steps 5-6
+     (restock/catalog, food buffs)
+   - First-night tutorial: the radio walks night 1 (take an order, cook, deliver, clock in)
+   - Solo works: order pace and monster count scale with player count (1-4)
+   - Settings: volume, mouse sensitivity, fullscreen. Player name box. Leave/rejoin works.
+   - One consistent look: low-poly placeholder art that matches, not finished art
+   - Voice: players use Discord. No in-game voice yet.
+   - Ends after ~3 nights with a "the bridge is out... coming soon" cliffhanger
+
+2. EARLY ACCESS v1 (Steam, ~$9.99)
+   - Everything in the demo + Phase B step 7, Phase C and Phase D
+   - 2 neighborhoods (starter block + #2), skateboard/bike
+   - Steam lobbies/invites, join in progress, PROXIMITY VOICE CHAT (essential for the genre)
+   - Real art and audio pass on everything that ships
+   - Monster pathfinding that handles the whole map
+
+3. EA UPDATES (each one = a new neighborhood + its story chain + its monster)
+   Order decided by what players respond to.
+
+PARKING LOT (not in any release until promoted)
+  Van, food truck, second shop, light-loving monsters, Carnival, Downtown, the final
+  "bring back the morning" chain, cosmetics shop, arcade games, jukebox.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPEN QUESTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Real-time length of a night (~15-20 min?) and how many nights to save the first
+  neighborhood
+- Health numbers, revive time, hospital bill size
+- Exact topping buffs and durations
+- How the town map looks/works in the shop
+- How many neighborhoods total, and in what order
+- What the kidnapper looks like and where its lair is
+- Monetization: confirm EA price; when to put up the Steam page (as early as possible:
+  wishlists drive launch visibility)

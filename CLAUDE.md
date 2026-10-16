@@ -4,12 +4,11 @@ First-person co-op "friendslop" game (think Lethal Company / REPO / Content Warn
 Schedule I-style neighborhood navigation). You run a pizza shop in a monster-infested
 neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upgrade.
 
-- **Vision & plan:** `PizzaPanic_DesignDoc_v3.txt` (v1/v2 are history; ignore them).
-- **Current phase:** Phase 1, a *single-player proof of concept*. The code is meant to be
-  thrown away and rebuilt for multiplayer (Phase 2 = two-player networking test, Phase 3 =
-  rebuild). Keep it simple; don't over-engineer for reuse.
-- **Scope note:** Phase 1 has grown past the original Milestone 1 (upgrades, inventory, etc.).
-  Call out further scope creep; the real goal is "is the loop fun?".
+- **Vision & plan:** `PizzaPanic_DesignDoc_v4.txt` (v1-v3 are history). v4 has the long-term vision
+  (save Monsterville, bring back the morning) and the BUILD ORDER (Phases A-D) to work from.
+- **Current phase:** v4 BUILD ORDER Phase A (co-op confirmed working over Tailscale).
+- **Scope:** v4's RELEASE SCOPE section is the contract. Ideas outside it go to its PARKING LOT;
+  call out scope creep.
 
 ## Co-op status
 
