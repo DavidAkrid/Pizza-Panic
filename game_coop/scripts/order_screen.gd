@@ -147,7 +147,11 @@ func _redraw() -> void:
 			lines.append(GameState.describe_items(o.items))
 			if o.note != "":
 				lines.append("\"%s\"" % o.note)
-			label.modulate = GREY if _is_taken(o) else (WHITE if aimed == _bodies[i] else GREEN)
+			# Deep night specials flash red.
+			var idle := GREEN if o.mult == 1 else (RED if int(game.clock * 3.0) % 2 == 0 else RED.darkened(0.4))
+			if o.mult > 1:
+				lines[0] = "SPECIAL x%d!  %s" % [o.mult, lines[0]]
+			label.modulate = GREY if _is_taken(o) else (WHITE if aimed == _bodies[i] else idle)
 		else:
 			lines.append("%s   %s" % [o.house.to_upper(), "[READY]" if o.ready else "[ ]"])
 			lines.append(GameState.describe_items(o.items))
@@ -156,7 +160,13 @@ func _redraw() -> void:
 			_timers[i].modulate = time_color(left)
 		label.text = "\n".join(lines)
 	if mode == Mode.TERMINAL:
-		_title.text = "INCOMING ORDERS" if count > 0 else "INCOMING ORDERS\n\n\n... waiting for calls ..."
+		var night := NightCycle.instance
+		var waiting := "... waiting for calls ..."
+		if night and night.phase == NightCycle.Phase.DEEP_NIGHT:
+			waiting = "CLOSED\n... but the phone might still ring ..."
+		elif night and not night.is_open():
+			waiting = "CLOSED - see you tomorrow night"
+		_title.text = "INCOMING ORDERS" if count > 0 else "INCOMING ORDERS\n\n\n" + waiting
 	else:
 		_title.text = "KITCHEN  -  %d/%d" % [count, GameState.MAX_ACCEPTED] if count > 0 else "KITCHEN\n\n\nNo orders taken.\nTake one at the terminal."
 

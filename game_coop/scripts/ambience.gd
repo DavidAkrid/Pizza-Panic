@@ -14,9 +14,11 @@ const CHORDS := [
 
 var inside := true
 var chasing := false
+var dread := false ## deep night: the outside drone turns sour and rumbles
 var _shop_mix := 1.0
 var _out_mix := 0.0
 var _tension := 0.0
+var _dread := 0.0
 var _time := 0.0
 var _brown := 0.0
 var _playback: AudioStreamGeneratorPlayback
@@ -38,6 +40,7 @@ func _process(delta: float) -> void:
 	_shop_mix = move_toward(_shop_mix, 1.0 if inside else 0.0, delta / 1.5)
 	_out_mix = move_toward(_out_mix, 0.0 if inside else 1.0, delta / 1.5)
 	_tension = move_toward(_tension, 1.0 if chasing else 0.0, delta / 2.0)
+	_dread = move_toward(_dread, 1.0 if dread else 0.0, delta / 4.0)
 	_fill()
 
 
@@ -58,6 +61,8 @@ func _fill() -> void:
 			_brown = clampf(_brown * 0.998 + randf_range(-1.0, 1.0) * 0.03, -1.0, 1.0)
 			var swell := 0.6 + 0.4 * sin(TAU * t / 9.0)
 			var drone := sin(TAU * 55.0 * t) * 0.2 + sin(TAU * 58.27 * t) * 0.1
+			if _dread > 0.001: # a sour tritone and a slow sub rumble
+				drone += (sin(TAU * 77.78 * t) * 0.12 + sin(TAU * 36.7 * t) * 0.25 * (0.5 + 0.5 * sin(TAU * t / 3.0))) * _dread
 			s += (drone * swell + _brown * 0.4) * _out_mix
 			if _tension > 0.001:
 				var beat := fmod(t, 0.75)

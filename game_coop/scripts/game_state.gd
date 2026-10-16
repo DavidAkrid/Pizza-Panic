@@ -23,6 +23,17 @@ const DELIVERY_TIME_PER_M := 1.5 ## ...plus this per meter from the shop
 const FEE_PER_M := 0.1 ## delivery fee: farther = pays more
 const SPEED_TIP_MAX := 8 ## the faster the delivery, the better the odds of a big tip
 const NOTE_CHANCE := 0.35
+## Deep night special orders: rare, flash red on the terminal, pay SPECIAL_MULT times everything.
+const SPECIAL_MULT := 3
+const SPECIAL_GAP := Vector2(45, 75)
+const MAX_PENDING_SPECIAL := 2
+const SPECIAL_NOTES := [
+	"I know it's late. I'll pay. PLEASE.",
+	"don't mind the noises",
+	"we can see your flashlight from here. hurry",
+	"leave it by the door and RUN",
+	"it's my birthday. it's always my birthday.",
+]
 const NOTES := [
 	"BABY IS SLEEPING. knock quietly",
 	"extra olives or else",
@@ -88,17 +99,41 @@ func start() -> void:
 	_next_order_in = ORDER_GAP.x
 
 
+## Host: the next night opens. Calls start coming in again soon.
+func new_night() -> void:
+	_next_order_in = 6.0
+
+
+## Host: last call. The phones go quiet; orders already taken still count.
+func clear_pending() -> void:
+	orders = accepted()
+
+
+## Host: everyone clocked out. Anything not delivered is cancelled.
+func end_night() -> void:
+	var missed := accepted().size()
+	orders = []
+	if missed > 0:
+		announce.rpc("%d order%s never made it. Those customers won't forget." % [missed, "" if missed == 1 else "s"], 4.0)
+
+
 func _process(delta: float) -> void:
 	clock += delta # clients tick too, between syncs, so countdowns run smoothly
 	if not multiplayer.is_server() or not multiplayer.has_multiplayer_peer():
 		return
 	_expire_orders()
-	if pending().size() < MAX_PENDING:
+	# Calls come in while the shop is open; in the deep night only the odd special order does.
+	var night := NightCycle.instance
+	var special := night.phase == NightCycle.Phase.DEEP_NIGHT
+	if not night.is_open() and not special:
+		return
+	if pending().size() < (MAX_PENDING_SPECIAL if special else MAX_PENDING):
 		_next_order_in -= delta
 		if _next_order_in <= 0.0:
-			_add_order(false)
+			_add_order(false, special)
+			var gap := SPECIAL_GAP if special else ORDER_GAP
 			var players := World.instance.players.get_child_count()
-			_next_order_in = randf_range(ORDER_GAP.x, ORDER_GAP.y) / (0.7 + 0.3 * players)
+			_next_order_in = randf_range(gap.x, gap.y) / (0.7 + 0.3 * players)
 
 
 # --- Orders ---------------------------------------------------------------------------
@@ -145,12 +180,12 @@ static func describe_items(items: Array) -> String:
 	return ", ".join(parts)
 
 
-## What the order pays before quality: items at full marks + the delivery fee.
+## What the order pays before quality: items at full marks + the delivery fee (x3 if special).
 static func estimate_pay(o: Dictionary) -> int:
 	var total: int = o.fee
 	for entry in o.items:
 		total += int(PAY[entry.kind])
-	return total
+	return total * o.mult
 
 
 ## Meters from the shop door to the house (as the crow flies).
@@ -218,7 +253,7 @@ static func describe_entry(entry: Dictionary) -> String:
 
 
 ## Host: a new call comes in on the terminal, from a house that isn't already waiting.
-func _add_order(first: bool) -> void:
+func _add_order(first: bool, special := false) -> void:
 	var busy := orders.map(func(o: Dictionary) -> String: return o.house)
 	var free := _hood().houses.filter(func(h: House) -> bool: return not h.address in busy)
 	if free.is_empty():
@@ -243,7 +278,8 @@ func _add_order(first: bool) -> void:
 		"house": house.address,
 		"items": items,
 		"fee": roundi(distance_to(house.address) * FEE_PER_M),
-		"note": NOTES.pick_random() if not first and randf() < NOTE_CHANCE else "",
+		"note": SPECIAL_NOTES.pick_random() if special else (NOTES.pick_random() if not first and randf() < NOTE_CHANCE else ""),
+		"mult": SPECIAL_MULT if special else 1,
 		"accepted": false,
 		"ready": false,
 		"deadline": -1.0 if first else clock + PENDING_TIME,
@@ -358,6 +394,9 @@ func deliver(house: House, door_position: Vector3) -> void:
 		all[index].items = remaining
 		lines.append("Still waiting on: " + describe_items(remaining))
 	orders = all
+	if order.mult > 1:
+		total *= order.mult
+		lines.append("DEEP NIGHT SPECIAL: everything x%d!" % order.mult)
 	money += total
 	lines.insert(0, "Delivered! +$%d" % total)
 	announce.rpc("\n".join(lines), 6.0)

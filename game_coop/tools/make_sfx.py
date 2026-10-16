@@ -223,6 +223,61 @@ def terminal_beep():
     return lowpass(out, 4000)
 
 
+def bell():
+    """Clock tower bell: one low, long, slightly sour bong."""
+    n = int(RATE * 4.0)
+    f0 = 196.0  # G3
+    partials = [(0.5, 0.5, 0.6), (1.0, 1.0, 0.9), (1.19, 0.5, 1.3), (1.5, 0.35, 1.6), (2.0, 0.4, 1.9), (2.66, 0.2, 2.8)]
+    out = []
+    for i in range(n):
+        t = i / RATE
+        s = sum(a * math.sin(2 * math.pi * f0 * r * t) * math.exp(-t * d) for r, a, d in partials)
+        out.append(s * min(t / 0.004, 1.0))
+    return out
+
+
+def punch_clock():
+    """Time card stamp: a clack, then a heavy mechanical ka-CHUNK."""
+    rng = random.Random(23)
+    n = int(RATE * 0.45)
+    out = [0.0] * n
+    for start, f, amp in [(0.0, 900.0, 0.5), (0.14, 120.0, 1.0)]:
+        noise = lowpass([rng.uniform(-1, 1) for _ in range(int(RATE * 0.2))], 2500)
+        for i in range(len(noise)):
+            t = i / RATE
+            s = (math.sin(2 * math.pi * f * t) * 0.8 + noise[i] * 2.0) * math.exp(-t * 35) * amp
+            j = int(start * RATE) + i
+            if j < n:
+                out[j] += s * min(t / 0.0005, 1.0)
+    return out
+
+
+def radio_static():
+    """Radio clicking on: a burst of band-passed static that settles down."""
+    rng = random.Random(29)
+    n = int(RATE * 0.7)
+    raw = [rng.uniform(-1, 1) for _ in range(n)]
+    band = [h - l for h, l in zip(lowpass(raw, 3500), lowpass(raw, 600))]
+    out = []
+    for i in range(n):
+        t = i / RATE
+        crackle = 1.0 + (3.0 if rng.random() < 0.002 else 0.0)
+        out.append(band[i] * crackle * min(t / 0.01, 1.0) * (0.35 + 0.65 * math.exp(-t * 4)))
+    return out
+
+
+def neon_buzz():
+    """Neon sign flickering on: stuttering mains buzz."""
+    n = int(RATE * 0.9)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        on = 1.0 if (t > 0.6 or int(t * 14) % 3 != 1) else 0.15
+        s = 1.0 if math.sin(2 * math.pi * 120 * t) > 0.6 else -0.3
+        out.append(s * on * 0.4)
+    return lowpass(out, 1800)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for k in range(4):
@@ -238,3 +293,7 @@ if __name__ == "__main__":
     write("fryer_sizzle.wav", fryer_sizzle())
     write("kaching.wav", kaching())
     write("terminal_beep.wav", terminal_beep())
+    write("bell.wav", bell())
+    write("punch_clock.wav", punch_clock())
+    write("radio_static.wav", radio_static())
+    write("neon_buzz.wav", neon_buzz())

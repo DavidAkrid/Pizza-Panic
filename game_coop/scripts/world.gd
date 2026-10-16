@@ -19,6 +19,9 @@ var _next_item := 0
 var _cold_timer := 0.0
 var freeze_monsters := false # dev tests: hold monsters still
 var _env_tween: Tween
+var _sky_tween: Tween
+var _inside := true
+var _phase := -1 # the night phase this machine is showing (-1 = not shown yet)
 
 @onready var players: Node3D = $Players
 @onready var items: Node3D = $Items
@@ -54,7 +57,7 @@ func _ready() -> void:
 	$Shop/ShopArea.body_entered.connect(func(b: Node3D) -> void: _shop_contact(b, true))
 	$Shop/ShopArea.body_exited.connect(func(b: Node3D) -> void: _shop_contact(b, false))
 	hud.visible = false
-	_set_inside(true)
+	show_phase(NightCycle.instance.phase)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	var args := OS.get_cmdline_user_args()
@@ -110,6 +113,27 @@ func _refresh_order_hud(me: Player) -> void:
 		if not me.in_shop:
 			hud.compass.markers.append([Compass.bearing(me.global_position, SHOP_DOOR), Color(1, 0.5, 0.3)])
 	hud.order_label.text = "\n".join(lines)
+	_refresh_night_hud(me)
+
+
+## Top right, under the money: the night, the time, and what the phase wants from you.
+func _refresh_night_hud(me: Player) -> void:
+	var night := NightCycle.instance
+	var time := NightCycle.format_hour(night.hour()) if night.phase != NightCycle.Phase.TIME_SKIP else "..."
+	var line := "NIGHT %d   %s" % [night.night, time]
+	var color := Color(0.85, 0.85, 0.9)
+	match night.phase:
+		NightCycle.Phase.LAST_CALL:
+			line += "\nLAST CALL - get back to the shop!"
+			color = Color(1, 0.4, 0.3)
+		NightCycle.Phase.DEEP_NIGHT:
+			var mine := me.name.to_int() in night.clocked_in
+			line += "\nDEEP NIGHT - %s (%d/%d)" % ["clocked in" if mine else "clock in to end the night", night.clocked_in.size(), night.crew_size()]
+			color = Color(1, 0.3, 0.25)
+		NightCycle.Phase.TIME_SKIP:
+			line += "\nEveryone's clocked in. See you tomorrow night."
+	hud.night_label.text = line
+	hud.night_label.modulate = color
 	var target = me.get_interact_target()
 	hud.prompt_label.text = target.get_prompt(me) if target else ""
 
@@ -123,6 +147,7 @@ func host() -> void:
 	_enter_game()
 	_spawn_player(1)
 	GameState.instance.start()
+	NightCycle.instance.start()
 	_spawn_monsters.call_deferred()
 	status.text = ""
 	hud.show_message("Hosting! Friends join with:%s%s" % ["\n", _share_addresses()], 10.0)
@@ -290,14 +315,78 @@ func _shop_contact(body: Node3D, entered: bool) -> void:
 
 
 func _set_inside(inside: bool) -> void:
+	_inside = inside
 	ambience.inside = inside
 	var env := world_env.environment
 	if _env_tween:
 		_env_tween.kill()
 	_env_tween = create_tween().set_parallel()
-	_env_tween.tween_property(env, "fog_density", 0.01 if inside else 0.045, 1.2)
+	var outside_fog := 0.06 if _phase == NightCycle.Phase.DEEP_NIGHT else 0.045
+	_env_tween.tween_property(env, "fog_density", 0.01 if inside else outside_fog, 1.2)
 	_env_tween.tween_property(env, "volumetric_fog_density", 0.0 if inside else 0.025, 1.2)
 	_env_tween.tween_property(env, "ambient_light_energy", 0.5 if inside else 0.2, 1.2)
+
+
+# --- The night's look (every machine, from the synced phase) ----------------------------
+
+## Sky/fog/moon colors per phase: [background, fog, ambient, moon].
+const SKY_NORMAL := [Color(0.02, 0.025, 0.04), Color(0.03, 0.04, 0.06), Color(0.3, 0.35, 0.5), Color(0.55, 0.65, 0.9)]
+const SKY_LAST_CALL := [Color(0.3, 0.05, 0.03), Color(0.32, 0.06, 0.03), Color(0.6, 0.3, 0.28), Color(1.0, 0.4, 0.3)]
+const SKY_DEEP := [Color(0.2, 0.0, 0.01), Color(0.26, 0.02, 0.01), Color(0.55, 0.15, 0.15), Color(0.9, 0.15, 0.1)]
+const NEON_BUZZ := preload("res://audio/neon_buzz.wav")
+
+
+## Called whenever the synced phase changes (and once for players who join mid-night).
+func show_phase(phase: NightCycle.Phase) -> void:
+	var was := _phase
+	_phase = phase
+	var sky: Array = SKY_NORMAL
+	var fade := 4.0
+	match phase:
+		NightCycle.Phase.LAST_CALL:
+			sky = SKY_LAST_CALL
+		NightCycle.Phase.DEEP_NIGHT:
+			sky = SKY_DEEP
+		NightCycle.Phase.TIME_SKIP:
+			fade = NightCycle.SKIP_LENGTH # the red drains away while the clock spins
+	if _sky_tween:
+		_sky_tween.kill()
+	var env := world_env.environment
+	_sky_tween = create_tween().set_parallel()
+	_sky_tween.tween_property(env, "background_color", sky[0], fade)
+	_sky_tween.tween_property(env, "fog_light_color", sky[1], fade)
+	_sky_tween.tween_property(env, "ambient_light_color", sky[2], fade)
+	_sky_tween.tween_property($Moon, "light_color", sky[3], fade)
+	ambience.dread = phase == NightCycle.Phase.DEEP_NIGHT
+	_set_inside(_inside) # deep night fog is thicker
+	# The neon sign: OPEN while taking calls, CLOSED from last call until the next night.
+	var open := phase == NightCycle.Phase.NIGHT
+	var was_open := was == NightCycle.Phase.NIGHT
+	if open != was_open or was == -1:
+		_set_sign(open, was != -1)
+
+
+func _set_sign(open: bool, buzz: bool) -> void:
+	var neon: Label3D = $Shop/OpenSign
+	var glow: OmniLight3D = $Shop/OpenSign/Glow
+	neon.text = "OPEN" if open else "CLOSED"
+	var color := Color(1, 0.25, 0.45) if open else Color(0.3, 0.5, 1)
+	neon.modulate = color
+	glow.light_color = color
+	if not buzz:
+		return
+	var a := AudioStreamPlayer3D.new()
+	a.stream = NEON_BUZZ
+	a.finished.connect(a.queue_free)
+	neon.add_child(a)
+	a.play()
+	# Stutter on like a real neon tube.
+	var tw := create_tween()
+	for i in 5:
+		tw.tween_callback(neon.set_visible.bind(false))
+		tw.tween_interval(randf_range(0.04, 0.12))
+		tw.tween_callback(neon.set_visible.bind(true))
+		tw.tween_interval(randf_range(0.05, 0.15))
 
 
 func _arg(prefix: String) -> String:

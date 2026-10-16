@@ -25,6 +25,8 @@ const BITE_DAMAGE := 34.0 # % off the victim's pizza
 var target_id := 0
 ## True while reeling from a hit. Synced: everyone sees it rock back.
 var staggered := false
+## Dozing: early in the night only some monsters are up. Synced: everyone sees it slumped over.
+var asleep := false
 
 # Host-only brain state.
 var state := State.WANDER
@@ -68,7 +70,10 @@ func _think(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
 
-	var target := _choose_target()
+	# The night ramps up: more of them awake, and the awake ones faster with sharper noses.
+	var danger := NightCycle.instance.danger()
+	asleep = not _is_awake(danger)
+	var target: Player = null if asleep else _choose_target(1.0 + 0.3 * danger)
 	if target:
 		state = State.CHASE
 		target_id = target.name.to_int()
@@ -84,10 +89,10 @@ func _think(delta: float) -> void:
 		to.y = 0.0
 		var dist := to.length()
 		dir = to / maxf(dist, 0.001)
-		speed = CHASE_SPEED if dist > STOP_RANGE else 0.0 # still faces you while standing off
+		speed = CHASE_SPEED * (1.0 + 0.2 * danger) if dist > STOP_RANGE else 0.0 # still faces you while standing off
 		if dist < HIT_RANGE and _cooldown <= 0.0 and _recover <= 0.0:
 			_bite(target)
-	else:
+	elif not asleep:
 		_wander_timer -= delta
 		var to_target := _wander_target - global_position
 		to_target.y = 0.0
@@ -113,7 +118,7 @@ func _think(delta: float) -> void:
 
 ## Keep chasing the current target while it's still fair game; otherwise pick the closest player
 ## it can smell (carrying food) or see (close by). Nobody inside the shop counts.
-func _choose_target() -> Player:
+func _choose_target(senses: float) -> Player:
 	var current := World.instance.player(target_id) if target_id != 0 else null
 	if current and not World.is_in_shop(current.global_position) \
 			and _flat_dist(current) < GIVE_UP_RANGE:
@@ -124,7 +129,7 @@ func _choose_target() -> Player:
 		if World.is_in_shop(p.global_position):
 			continue
 		var d := _flat_dist(p)
-		var detect := SMELL_RANGE if p.carrying_food() else SIGHT_RANGE
+		var detect := (SMELL_RANGE if p.carrying_food() else SIGHT_RANGE) * senses
 		if d < detect and d < best_d:
 			best = p
 			best_d = d
@@ -159,6 +164,15 @@ func request_hit(force: Vector3, stun: float) -> void:
 		knock_back(force, stun)
 
 
+## A third of them are up at opening, all of them by last call. Monsters already chasing stay up.
+func _is_awake(danger: float) -> bool:
+	if target_id != 0:
+		return true
+	var total := get_parent().get_child_count()
+	var index := name.trim_prefix("monster_").to_int()
+	return index < ceili(total * clampf(0.35 + 0.65 * danger, 0.0, 1.0))
+
+
 func _pick_wander() -> void:
 	_wander_target = home + Vector3(randf_range(-6, 6), 0, randf_range(-6, 6))
 	_wander_timer = randf_range(3.0, 7.0)
@@ -179,4 +193,6 @@ func _animate(delta: float) -> void:
 	var cycle := sin(_t * (3.0 + 6.0 * gait))
 	visual.rotation.z = cycle * (0.08 + 0.1 * gait)
 	visual.position.y = absf(cycle) * 0.08 * gait
-	visual.rotation.x = lerpf(visual.rotation.x, 0.5 if staggered else 0.0, 10.0 * delta) # rock back when hit
+	# Rock back when hit; slump forward, barely swaying, while dozing.
+	var lean := 0.5 if staggered else (-0.45 + sin(_t * 0.8) * 0.04 if asleep else 0.0)
+	visual.rotation.x = lerpf(visual.rotation.x, lean, (10.0 if not asleep else 2.0) * delta)

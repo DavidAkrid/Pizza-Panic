@@ -5,6 +5,7 @@ extends CanvasLayer
 var order_label: Label ## top left: taken orders
 var hands_label: Label ## bottom right, above the slots: details of the selected slot
 var money_label: Label
+var night_label: Label ## top right, under the money: night, time, phase
 var prompt_label: Label
 var message_label: Label
 var compass: Compass
@@ -31,6 +32,7 @@ func _ready() -> void:
 	hands_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	money_label = _label(Vector2(432, 6), Vector2(200, 20), 14, HORIZONTAL_ALIGNMENT_RIGHT)
 	money_label.modulate = Color(0.6, 1, 0.6)
+	night_label = _label(Vector2(392, 26), Vector2(240, 30), 10, HORIZONTAL_ALIGNMENT_RIGHT)
 	prompt_label = _label(Vector2(120, 205), Vector2(400, 20), 10, HORIZONTAL_ALIGNMENT_CENTER)
 	message_label = _label(Vector2(70, 70), Vector2(500, 90), 12, HORIZONTAL_ALIGNMENT_CENTER)
 	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

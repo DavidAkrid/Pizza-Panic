@@ -119,6 +119,19 @@ G. DELIVERY (house_door.gd, game_state.gd)
 H. UPGRADES (upgrade_station.gd)
    Right wall of the shop. Personal upgrades, paid from team money; plaques show YOUR prices.
 
+I. THE NIGHT (night_cycle.gd, punch_clock.gd)
+   NIGHT (13 min, 8 PM -> 1:30 AM): sign says OPEN, calls come in. A third of the monsters
+     are awake at opening, all of them by last call, and they get faster with sharper noses.
+     Later nights start meaner.
+   LAST CALL (2 min): bell, red sky, radio warning, sign flips to CLOSED, the terminal stops
+     taking calls (waiting calls are dropped; taken orders still count).
+   DEEP NIGHT: darker red, thicker fog, sour music, every monster up and faster (still slower
+     than a sprint). The odd red SPECIAL order (x3 pay) still rings. The wall clock stops at 3 AM.
+     Everyone inside punches the PUNCH CLOCK (front wall, right of the door); leaving the shop
+     clocks you back out. Whole crew in -> undelivered orders are cancelled and the TIME SKIP
+     plays (~6s: wall clock spins, the red drains), then the next night opens.
+   No quota, no game over.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. THE SCRIPTS
@@ -128,6 +141,8 @@ world.gd           The world scene: menu, pause menu, spawning players/items/mon
                    your inside/outside mood, HUD updates, cold-pizza rule (host).
 game_state.gd      Host-owned rules: orders, clock, team money, deliveries, upgrades. Synced.
 order_screen.gd    The order terminal and the kitchen screen (one script, two modes).
+night_cycle.gd     Host-owned shift clock: phases, monster danger, radio lines, clock-in.
+punch_clock.gd     The punch clock and the wall clock above it.
 player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
                    footsteps you hear from friends, upgrade effects.
 combat.gd          Charged punch/swing/throw and who gets hit.
@@ -159,6 +174,11 @@ Pay, tips, order mix ............ game_state.gd: PAY, PERFECT_TIP, ITEM_WEIGHTS,
 Order pace, timers, fees, notes .. game_state.gd: ORDER_GAP, PENDING_TIME, DELIVERY_TIME*, FEE_PER_M,
                                   SPEED_TIP_MAX, NOTES, MAX_PENDING/MAX_ACCEPTED
 Who hands over at the door ...... game_state.gd: DELIVERY_RANGE
+Night length, last call, skip .... night_cycle.gd: NIGHT_LENGTH, LAST_CALL_LENGTH, SKIP_LENGTH
+Radio lines ..................... night_cycle.gd: RADIO_OPEN, RADIO_LAST_CALL, RADIO_DEEP
+How monsters ramp up ............ night_cycle.gd: danger(); shambler.gd: _is_awake(), _think()
+Deep night specials ............. game_state.gd: SPECIAL_MULT, SPECIAL_GAP, SPECIAL_NOTES
+Night sky colors ................ world.gd: SKY_NORMAL, SKY_LAST_CALL, SKY_DEEP
 Upgrade names/prices ............ game_state.gd: UPGRADES (effects: player.gd apply_upgrades)
 Oven / fryer timing ............. cook_station.gd: TIMES
 Customer animation .............. house_door.gd: DOOR_OPEN, PEEK_LEAN, _play_visit

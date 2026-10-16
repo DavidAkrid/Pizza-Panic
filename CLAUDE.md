@@ -57,6 +57,10 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   TERMINAL/KITCHEN modes; each row is its own collider). `GameState.orders` is a list (pending ->
   accepted -> delivered/expired) and deadlines run on the synced host `clock` (replication ALWAYS).
   Screens redraw themselves from synced data; accept/ready are `GameState.request_*` RPCs.
+  v4 Phase A step 2 done: night cycle (`night_cycle.gd`, node "Night", `NightCycle.instance`, own
+  Sync). Phase changes run `World.show_phase` on every machine (sky, sign, music); one-shot moments
+  (bell, radio, punch) are RPCs. Monsters read `danger()` on the host; `asleep` is synced.
+  Dev tests fast-forward by setting `NightCycle.instance.phase_start` back.
   Dev tests: never let the host's checks finish before the client's (the client reloads to the
   menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever
