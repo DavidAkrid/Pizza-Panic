@@ -80,6 +80,7 @@ var upgrades := {}:
 		upgrades = value
 		if is_node_ready():
 			apply_all_upgrades()
+var _away := {} # host: name -> {"upgrades", "items"} for remembered players who aren't here
 var _next_id := 0
 var _next_order_in := 0.0 # host: countdown to the next call
 
@@ -93,10 +94,68 @@ func _ready() -> void:
 	_show_orders()
 
 
-## Host: called when the game starts. The first call is always one pizza, next door, no rush.
-func start() -> void:
-	_add_order(true)
-	_next_order_in = ORDER_GAP.x
+## Host: called when the game starts, with the saved town (or {} for a new one).
+## A new town's first call is always one pizza, next door, no rush.
+func start(town: Dictionary) -> void:
+	if town.is_empty():
+		_add_order(true)
+		_next_order_in = ORDER_GAP.x
+		return
+	money = int(town.get("money", 0))
+	NightCycle.instance.night = int(town.get("night", 1))
+	_away = town.get("players", {}).duplicate(true)
+	_next_order_in = 6.0
+
+
+# --- Saving (host) ------------------------------------------------------------------------
+# The town is saved after every night (NightCycle). Players are remembered by name: whoever's
+# here is read live; anyone who isn't (left, or hasn't joined yet) is kept in `_away`.
+
+## Host: someone spawned. If the town remembers them, give their upgrades and items back.
+func player_joined(p: Player) -> void:
+	var saved: Dictionary = _away.get(p.player_name, {})
+	_away.erase(p.player_name)
+	if saved.is_empty():
+		return
+	var all := upgrades.duplicate(true)
+	all[str(p.name)] = saved.get("upgrades", {})
+	upgrades = all
+	var stuff: Array = saved.get("items", [])
+	if stuff.is_empty():
+		return
+	await get_tree().create_timer(1.0).timeout # let their player arrive on their machine first
+	if not is_instance_valid(p) or p.is_queued_for_deletion():
+		return
+	for entry: Dictionary in stuff:
+		var it := World.instance.spawn_item(entry.kind, p.global_position + Vector3.UP, entry.get("info", {}))
+		it.state = entry.get("state", {})
+		it.give_to(p, int(entry.get("slot", 0)))
+
+
+## Host: someone left. Keep their upgrades for when they come back (their items drop).
+func player_left(p: Player) -> void:
+	_away[p.player_name] = {"upgrades": upgrades.get(str(p.name), {}), "items": []}
+	var all := upgrades.duplicate(true)
+	all.erase(str(p.name))
+	upgrades = all
+
+
+## The whole town, ready for the save file.
+func snapshot() -> Dictionary:
+	var everyone := _away.duplicate(true)
+	for p: Player in World.instance.players.get_children():
+		var stuff := []
+		for it in p.inventory():
+			if it:
+				stuff.append({"kind": it.kind, "info": it.spawn_info, "state": it.state, "slot": it.holder_slot})
+		everyone[p.player_name] = {"upgrades": upgrades.get(str(p.name), {}), "items": stuff}
+	return {"night": NightCycle.instance.night, "money": money, "players": everyone}
+
+
+## Host: write the town to disk.
+func save_town() -> void:
+	if SaveGame.save_town(snapshot()):
+		announce.rpc("Town saved.", 2.5)
 
 
 ## Host: the next night opens. Calls start coming in again soon.

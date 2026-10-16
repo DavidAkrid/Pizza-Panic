@@ -145,6 +145,13 @@ J. HEALTH, DOWN, REVIVE (player.gd, stall.gd)
    out of the BATHROOM STALL (set into the shop's left wall). Everything you carried is gone and the team
    pays a $25 hospital bill.
 
+K. SAVING (save_game.gd, game_state.gd)
+   Type your name on the menu (remembered on your PC). The HOST'S town saves after every
+   night: night number, team money, and each player's upgrades and carried items, by name.
+   Next time, the host's button says "Continue town (Night 3 - $240)"; "New town" starts over.
+   Friends who join with the same name get their stuff back (also if they leave and rejoin
+   mid-session). Quitting mid-night loses that night's progress. Dev tests use test_* files.
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. THE SCRIPTS
@@ -159,6 +166,7 @@ punch_clock.gd     The punch clock and the wall clock above it.
 stall.gd           The bathroom stall you respawn from (the toilet flushes on E, too).
 shop_doors.gd      The front double doors (swing open for anyone nearby, worked out locally).
 item_shop.gd       A wall display that sells one item (the bat).
+save_game.gd       The town save file and this PC's player name.
 player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
                    footsteps you hear from friends, upgrade effects.
 combat.gd          Charged punch/swing/throw and who gets hit.

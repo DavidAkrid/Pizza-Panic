@@ -32,6 +32,7 @@ var _phase := -1 # the night phase this machine is showing (-1 = not shown yet)
 @onready var menu: CanvasLayer = $Menu
 @onready var status: Label = $Menu/Status
 @onready var address_field: LineEdit = $Menu/Panel/Box/Address
+@onready var name_field: LineEdit = $Menu/Panel/Box/Name
 
 
 func _enter_tree() -> void:
@@ -40,14 +41,20 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	$Menu/Panel/Box/Host.pressed.connect(host)
+	$Menu/Panel/Box/NewTown.pressed.connect(host.bind(true))
 	$Menu/Panel/Box/Join.pressed.connect(func() -> void: join(address_field.text))
+	name_field.text = SaveGame.player_name()
+	name_field.text_changed.connect(func(t: String) -> void: SaveGame.set_player_name(SaveGame.clean_name(t)))
+	var town := SaveGame.summary()
+	$Menu/Panel/Box/Host.text = "Continue town (%s)" % town if town != "" else "Host game"
+	$Menu/Panel/Box/NewTown.visible = town != ""
 	$Menu/Panel/Box/Quit.pressed.connect(get_tree().quit)
 	$Menu/Pause/Box/Resume.pressed.connect(_set_paused.bind(false))
 	$Menu/Pause/Box/Leave.pressed.connect(_back_to_menu.bind("You left the game."))
 	$Menu/Pause/Box/QuitGame.pressed.connect(get_tree().quit)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	multiplayer.connected_to_server.connect(_enter_game)
+	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_back_to_menu.bind("The host left."))
 	# Every machine builds spawned players with the same function + data, so who-is-who,
@@ -62,6 +69,10 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	var args := OS.get_cmdline_user_args()
+	if _arg("--name=") != "":
+		name_field.text = _arg("--name=")
+	if "--test=host" in args and not "--keep-town" in args:
+		SaveGame.delete_town() # tests start from a fresh (test-only) town unless told otherwise
 	if "--host" in args or "--test=host" in args:
 		host()
 	elif "--test=client" in args:
@@ -156,14 +167,15 @@ func _refresh_night_hud(me: Player) -> void:
 
 # --- Session -------------------------------------------------------------------
 
-func host() -> void:
+## Continues the saved town if there is one, unless `fresh` (the "New town" button).
+func host(fresh := false) -> void:
 	if Net.host() != OK:
 		status.text = "Couldn't host - is port %d already in use?" % Net.port
 		return
 	_enter_game()
-	_spawn_player(1)
-	GameState.instance.start()
+	GameState.instance.start({} if fresh else SaveGame.load_town())
 	NightCycle.instance.start()
+	_spawn_player(1, _my_name())
 	_spawn_monsters.call_deferred()
 	status.text = ""
 	hud.show_message("Hosting! Friends join with:%s%s" % ["\n", _share_addresses()], 10.0)
@@ -232,18 +244,37 @@ func _back_to_menu(reason: String) -> void:
 
 func _on_peer_connected(id: int) -> void:
 	if multiplayer.is_server():
-		_spawn_player(id)
 		for station in get_tree().get_nodes_in_group("cook_stations"):
 			station.resync_to(id) # show them anything already in the oven/fryer
 
 
+## Joiner: connected. Tell the host who we are; it spawns us (see _hello).
+func _on_connected() -> void:
+	_enter_game()
+	_hello.rpc_id(1, _my_name())
+
+
+## Host: a joiner introduced themselves. Spawn them; the save gives back their stuff by name.
+@rpc("any_peer", "reliable")
+func _hello(their_name: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if multiplayer.is_server() and player(id) == null:
+		_spawn_player(id, SaveGame.clean_name(their_name))
+
+
 func _on_peer_disconnected(id: int) -> void:
 	if multiplayer.is_server():
-		for it: Item in items.get_children():
-			it.release_from(id) # don't let a leaving player take items with them
 		var p := player(id)
 		if p:
+			GameState.instance.player_left(p) # remember their upgrades for when they come back
+		for it: Item in items.get_children():
+			it.release_from(id) # don't let a leaving player take items with them
+		if p:
 			p.queue_free()
+
+
+func _my_name() -> String:
+	return SaveGame.clean_name(name_field.text)
 
 
 ## Sent by a downed player who bled out or gave up. Host: whatever they carried is gone, the team
@@ -277,21 +308,33 @@ func request_respawn() -> void:
 
 ## Host only. The PlayerSpawner runs _make_player with this data on every machine.
 ## Takes the lowest free player number, so someone rejoining gets their color/spot back.
-func _spawn_player(id: int) -> void:
+## A blank name becomes "Host"/"Player N"; a name already in the game gets " (2)".
+func _spawn_player(id: int, player_name: String) -> void:
 	var taken: Array[int] = []
+	var names: Array[String] = []
 	for p: Player in players.get_children():
 		if not p.is_queued_for_deletion():
 			taken.append(p.slot)
+			names.append(p.display_name())
 	var slot := 0
 	while slot in taken:
 		slot += 1
-	$PlayerSpawner.spawn({"id": id, "slot": slot})
+	if player_name == "":
+		player_name = "Host" if id == 1 else "Player %d" % (slot + 1)
+	var unique := player_name
+	var n := 2
+	while unique in names:
+		unique = "%s (%d)" % [player_name, n]
+		n += 1
+	var p: Player = $PlayerSpawner.spawn({"id": id, "slot": slot, "name": unique})
+	GameState.instance.player_joined(p)
 
 
 func _make_player(data: Dictionary) -> Player:
 	var p: Player = PLAYER.instantiate()
 	p.name = str(data.id)
 	p.slot = data.slot
+	p.player_name = data.get("name", "")
 	p.position = Vector3(-1.5 + (p.slot % 4) * 1.0, 0.05, 3.5)
 	p.rotation.y = PI # face the counter
 	return p

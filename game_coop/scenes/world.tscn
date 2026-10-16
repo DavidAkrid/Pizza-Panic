@@ -905,10 +905,10 @@ current = true
 layer = 2
 
 [node name="Panel" type="PanelContainer" parent="Menu"]
-offset_left = 220.0
-offset_top = 110.0
-offset_right = 420.0
-offset_bottom = 250.0
+offset_left = 200.0
+offset_top = 80.0
+offset_right = 440.0
+offset_bottom = 290.0
 
 [node name="Box" type="VBoxContainer" parent="Menu/Panel"]
 
@@ -916,8 +916,15 @@ offset_bottom = 250.0
 text = "PIZZA PANIC"
 horizontal_alignment = 1
 
+[node name="Name" type="LineEdit" parent="Menu/Panel/Box"]
+placeholder_text = "Your name"
+max_length = 16
+
 [node name="Host" type="Button" parent="Menu/Panel/Box"]
 text = "Host game"
+
+[node name="NewTown" type="Button" parent="Menu/Panel/Box"]
+text = "New town (starts over)"
 
 [node name="Address" type="LineEdit" parent="Menu/Panel/Box"]
 placeholder_text = "Host address (blank = this PC)"

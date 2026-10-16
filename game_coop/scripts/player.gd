@@ -32,8 +32,10 @@ const REVIVE_TIME := 3.0 ## a friend holds E this long
 const REVIVE_HEALTH := 35.0
 const GIVE_UP_TIME := 1.5 ## hold E while down to skip the wait
 
-## Join order (0 = host). Comes in with the spawn data (World._make_player). Drives color and name.
+## Join order (0 = host). Comes in with the spawn data (World._make_player). Drives color.
 var slot := 0
+## The name typed on the menu (spawn data). The host's save remembers your stuff by it.
+var player_name := ""
 ## Synced so everyone sees your beam.
 var flashlight_on := true:
 	set(value):
@@ -92,6 +94,8 @@ func is_local() -> bool:
 
 
 func display_name() -> String:
+	if player_name != "":
+		return player_name
 	return "Host" if slot == 0 else "Player %d" % (slot + 1)
 
 

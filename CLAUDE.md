@@ -66,6 +66,10 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   (`_tick_hold`), then `revive` RPC to the downed player's owner. Respawn = owner asks
   `World.request_respawn` (host frees their items, bills the team) -> `stall.play_respawn` +
   `Player.respawn_at`. Dev tests can hold keys with `Input.action_press("interact")`.
+  v4 Phase A step 4 done (Phase A complete): saving. Joiners send `World._hello(name)` and the
+  host spawns them (name in spawn data). `GameState.start(town)` loads; `player_joined/left`
+  move upgrades/items between live players and `_away` (by name); `save_town()` runs after each
+  night. Dev tests use `user://test_*` files, start fresh unless `--keep-town`; `--name=` sets the name.
   Dev tests: never let the host's checks finish before the client's (the client reloads to the
   menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever

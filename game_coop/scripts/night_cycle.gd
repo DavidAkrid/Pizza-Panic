@@ -136,6 +136,7 @@ func _process(_delta: float) -> void:
 				clocked_in = []
 				_set_phase(Phase.NIGHT)
 				GameState.instance.new_night()
+				GameState.instance.save_town() # every finished night is saved
 				_radio.rpc(RADIO_OPEN.pick_random() % night)
 
 
