@@ -53,6 +53,10 @@ neighborhood: cook in the cozy shop, deliver through dark streets, get paid, upg
   everyone's via `Player.apply_upgrades` (slot_count only on the owner, it syncs from there).
   Esc = pause menu (Resume / Leave game / Quit; the world keeps running). Hosting shows this PC's
   join addresses (LAN + Tailscale).
+  v4 Phase A step 1 done: order terminal + kitchen screen (`order_screen.gd`, one script with
+  TERMINAL/KITCHEN modes; each row is its own collider). `GameState.orders` is a list (pending ->
+  accepted -> delivered/expired) and deadlines run on the synced host `clock` (replication ALWAYS).
+  Screens redraw themselves from synced data; accept/ready are `GameState.request_*` RPCs.
   Dev tests: never let the host's checks finish before the client's (the client reloads to the
   menu when the host quits, freeing nodes the client's checks still touch).
   Step 3 done: combat in `scripts/combat.gd` (child "Combat" of each player). Hits go to whoever

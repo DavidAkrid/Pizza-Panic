@@ -1,16 +1,44 @@
 class_name GameState
 extends Node
-## Host-owned game rules: the current order, the team's money, and deliveries.
-## Its Sync node sends `money` and `order` to everyone. Clients only READ them (HUD, order board,
-## porch lights, chevrons, door prompts); every change happens on the host.
+## Host-owned game rules: orders, the team's money, and deliveries.
+## Its Sync node sends `money`, `orders`, `upgrades` and `clock` to everyone. Clients only READ them
+## (screens, HUD, porch lights, chevrons, door prompts); every change happens on the host.
 ##
-## order = {} when there's no order, else {"house": "<address>", "items": [{"kind": ..., "toppings": [...]}, ...]}
-## (items = what's still owed). Always reassign `order`, never mutate it: the Sync only notices reassignment.
+## Orders come in on the order terminal (pending), someone takes one (accepted: it shows on the
+## kitchen screen, the house lights up), then it's delivered or the customer gives up.
+## orders = [{"id", "house", "items": [{"kind", "toppings"}...] (what's still owed), "fee", "note",
+##   "accepted", "ready", "deadline" (on `clock`; -1 = no rush), "time" (seconds it was given)}]
+## Always reassign `orders`, never mutate it: the Sync only notices reassignment.
 
 const PAY := {"pizza": 20.0, "sticks": 8.0, "soda": 3.0} # base pay per item before quality
 const PERFECT_TIP := 10
 const ITEM_WEIGHTS := {"pizza": 6.0, "sticks": 3.0, "soda": 2.0} # how often each shows up in orders
 const MAX_ORDER_ITEMS := 2
+const MAX_PENDING := 3 ## rows on the terminal
+const MAX_ACCEPTED := 4 ## rows on the kitchen screen
+const PENDING_TIME := 60.0 ## how long an order waits on the terminal before the caller hangs up
+const ORDER_GAP := Vector2(25, 40) ## seconds between new orders (solo; more players = faster)
+const DELIVERY_TIME := 100.0 ## base time to deliver once taken...
+const DELIVERY_TIME_PER_M := 1.5 ## ...plus this per meter from the shop
+const FEE_PER_M := 0.1 ## delivery fee: farther = pays more
+const SPEED_TIP_MAX := 8 ## the faster the delivery, the better the odds of a big tip
+const NOTE_CHANCE := 0.35
+const NOTES := [
+	"BABY IS SLEEPING. knock quietly",
+	"extra olives or else",
+	"please hurry, it's getting closer",
+	"don't look in the windows",
+	"if a man answers, do not give him the pizza",
+	"knock 3 times. not 4. NEVER 4.",
+	"I can hear you. hurry up.",
+	"cut it into 9 slices. there are 9 of us.",
+	"my last delivery guy never came back. no pressure",
+	"bring a flashlight, our porch bulb is out",
+	"hot. HOT. HOOOOT.",
+	"cash is under the mat. don't count it.",
+	"is it still night out there? just checking",
+	"the dog is friendly. the other dog is not.",
+]
 ## Everyone within this distance of the door when it opens hands over what they're carrying.
 const DELIVERY_RANGE := 4.5
 ## Shop wall upgrades: personal, paid from team money. One price per level; effects live in
@@ -27,11 +55,13 @@ const KACHING := preload("res://audio/kaching.wav")
 static var instance: GameState
 
 var money := 0
-var order := {}:
+var orders: Array = []:
 	set(value):
-		order = value
+		orders = value
 		if is_node_ready():
-			_show_order()
+			_show_orders()
+## Seconds since the host started. Synced constantly; order deadlines are on this clock.
+var clock := 0.0
 ## Each player's upgrade levels: {"<peer id>": {"shoes": 1, ...}}. Synced; every machine applies
 ## everyone's levels (so you see a friend's brighter flashlight). Reassign, never mutate.
 var upgrades := {}:
@@ -39,7 +69,8 @@ var upgrades := {}:
 		upgrades = value
 		if is_node_ready():
 			apply_all_upgrades()
-var _last_house := ""
+var _next_id := 0
+var _next_order_in := 0.0 # host: countdown to the next call
 
 
 func _enter_tree() -> void:
@@ -48,35 +79,132 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	set_multiplayer_authority(1)
-	_show_order()
+	_show_orders()
 
 
-## Host: called when the game starts.
+## Host: called when the game starts. The first call is always one pizza, next door, no rush.
 func start() -> void:
-	_new_order(true)
+	_add_order(true)
+	_next_order_in = ORDER_GAP.x
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	clock += delta # clients tick too, between syncs, so countdowns run smoothly
 	if not multiplayer.is_server() or not multiplayer.has_multiplayer_peer():
 		return
-	# A new order comes in once somebody is back at the shop.
-	if order.is_empty() and _anyone_in_shop():
-		_new_order(false)
-		announce.rpc("New order on the board!", 3.0)
+	_expire_orders()
+	if pending().size() < MAX_PENDING:
+		_next_order_in -= delta
+		if _next_order_in <= 0.0:
+			_add_order(false)
+			var players := World.instance.players.get_child_count()
+			_next_order_in = randf_range(ORDER_GAP.x, ORDER_GAP.y) / (0.7 + 0.3 * players)
 
 
 # --- Orders ---------------------------------------------------------------------------
 
-func has_order() -> bool:
-	return not order.is_empty()
+## Orders waiting on the terminal.
+func pending() -> Array:
+	return orders.filter(func(o: Dictionary) -> bool: return not o.accepted)
 
 
-func order_house() -> House:
-	return _house(order.get("house", ""))
+## Orders someone took: on the kitchen screen, houses lit.
+func accepted() -> Array:
+	return orders.filter(func(o: Dictionary) -> bool: return o.accepted)
+
+
+## The taken order for this house, or {}.
+func order_for(house: House) -> Dictionary:
+	for o in orders:
+		if o.accepted and o.house == house.address:
+			return o
+	return {}
 
 
 func is_order_house(house: House) -> bool:
-	return has_order() and order.house == house.address
+	return not order_for(house).is_empty()
+
+
+## Seconds until this order's deadline (INF when there's no rush).
+func time_left(o: Dictionary) -> float:
+	return INF if o.deadline < 0.0 else o.deadline - clock
+
+
+static func format_time(seconds: float) -> String:
+	if seconds == INF:
+		return ""
+	var s := maxi(ceili(seconds), 0)
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+## Everything on one line, for screens and the HUD.
+static func describe_items(items: Array) -> String:
+	var parts := PackedStringArray()
+	for entry in items:
+		parts.append(describe_entry(entry))
+	return ", ".join(parts)
+
+
+## What the order pays before quality: items at full marks + the delivery fee.
+static func estimate_pay(o: Dictionary) -> int:
+	var total: int = o.fee
+	for entry in o.items:
+		total += int(PAY[entry.kind])
+	return total
+
+
+## Meters from the shop door to the house (as the crow flies).
+func distance_to(address: String) -> int:
+	var h := find_house(address)
+	return roundi(World.SHOP_DOOR.distance_to(h.marker_position())) if h else 0
+
+
+## Anyone: take an order off the terminal.
+@rpc("any_peer", "call_local", "reliable")
+func request_accept(id: int) -> void:
+	if not multiplayer.is_server() or not _sender_in_shop():
+		return
+	if accepted().size() >= MAX_ACCEPTED:
+		_tell.rpc_id(_sender(), "The kitchen's full. Deliver something first!", false)
+		return
+	var all := orders.duplicate(true)
+	for o in all:
+		if o.id == id and not o.accepted:
+			o.accepted = true
+			o.time = DELIVERY_TIME + DELIVERY_TIME_PER_M * distance_to(o.house)
+			o.deadline = clock + o.time
+			orders = all
+			announce.rpc("Order taken: %s" % o.house, 2.5)
+			return
+
+
+## Anyone: tick an order "ready to go" on the kitchen screen (or untick it).
+@rpc("any_peer", "call_local", "reliable")
+func request_toggle_ready(id: int) -> void:
+	if not multiplayer.is_server() or not _sender_in_shop():
+		return
+	var all := orders.duplicate(true)
+	for o in all:
+		if o.id == id and o.accepted:
+			o.ready = not o.ready
+			orders = all
+			return
+
+
+## Host: ignored calls hang up quietly. Taken orders that run out hurt (rep penalty: Phase C).
+func _expire_orders() -> void:
+	var kept: Array = []
+	var gave_up := PackedStringArray()
+	for o in orders:
+		if time_left(o) > 0.0:
+			kept.append(o)
+		elif o.accepted:
+			gave_up.append(o.house)
+	if kept.size() == orders.size():
+		return
+	orders = kept
+	for house in gave_up:
+		announce.rpc("%s got tired of waiting and cancelled." % house, 4.0)
 
 
 ## Human-readable line for one order entry.
@@ -89,10 +217,15 @@ static func describe_entry(entry: Dictionary) -> String:
 	return "Soda"
 
 
-func _new_order(first: bool) -> void:
+## Host: a new call comes in on the terminal, from a house that isn't already waiting.
+func _add_order(first: bool) -> void:
+	var busy := orders.map(func(o: Dictionary) -> String: return o.house)
+	var free := _hood().houses.filter(func(h: House) -> bool: return not h.address in busy)
+	if free.is_empty():
+		return
 	var items: Array = []
 	if first:
-		items.append(_random_entry("pizza")) # first order is always just a pizza, next door
+		items.append(_random_entry("pizza"))
 	else:
 		var kinds: Array[String] = []
 		for i in randi_range(1, MAX_ORDER_ITEMS):
@@ -102,11 +235,30 @@ func _new_order(first: bool) -> void:
 			kinds.append(k)
 		for k in kinds:
 			items.append(_random_entry(k))
-	var houses := _hood().houses
-	var house: House = houses[0] if first else houses.pick_random()
-	while not first and house.address == _last_house:
-		house = houses.pick_random()
-	order = {"house": house.address, "items": items}
+	var house: House = _hood().houses[0] if first else free.pick_random()
+	_next_id += 1
+	var all := orders.duplicate(true)
+	all.append({
+		"id": _next_id,
+		"house": house.address,
+		"items": items,
+		"fee": roundi(distance_to(house.address) * FEE_PER_M),
+		"note": NOTES.pick_random() if not first and randf() < NOTE_CHANCE else "",
+		"accepted": false,
+		"ready": false,
+		"deadline": -1.0 if first else clock + PENDING_TIME,
+		"time": 0.0,
+	})
+	orders = all
+	_order_arrived.rpc()
+
+
+## Every machine: the terminal beeps.
+@rpc("authority", "call_local", "reliable")
+func _order_arrived() -> void:
+	var terminal := World.instance.get_node_or_null("Shop/OrderTerminal") as OrderScreen
+	if terminal:
+		terminal.beep()
 
 
 func _weighted_kind() -> String:
@@ -130,22 +282,12 @@ func _random_entry(kind: String) -> Dictionary:
 	return entry
 
 
-## Every machine: porch lights, chevrons, and the kitchen order board follow the order.
-func _show_order() -> void:
-	var world := World.instance
-	if world == null or _hood() == null:
+## Every machine: porch lights and chevrons follow the taken orders. (The screens redraw themselves.)
+func _show_orders() -> void:
+	if World.instance == null or _hood() == null:
 		return
 	for h in _hood().houses:
 		h.set_active(is_order_house(h))
-	var board: Label3D = world.get_node("Shop/OrderBoard/Text")
-	if not has_order():
-		board.text = "No orders right now."
-		return
-	var lines := PackedStringArray(["ORDER UP!"])
-	for entry in order.items:
-		lines.append(describe_entry(entry))
-	lines.append("Deliver to " + order.house)
-	board.text = "\n".join(lines)
 
 
 # --- Delivery ---------------------------------------------------------------------------
@@ -163,7 +305,8 @@ static func matches(entry: Dictionary, it: Item) -> bool:
 
 ## Prompt for a house door, worked out locally.
 func door_prompt(house: House, p: Player) -> String:
-	if is_order_house(house):
+	var order := order_for(house)
+	if not order.is_empty():
 		for entry in order.items:
 			for it in p.inventory():
 				if it and matches(entry, it):
@@ -173,7 +316,8 @@ func door_prompt(house: House, p: Player) -> String:
 
 ## Host: the customer has the door open. Takes what they ordered from everyone near the door.
 func deliver(house: House, door_position: Vector3) -> void:
-	if not is_order_house(house):
+	var order := order_for(house)
+	if order.is_empty():
 		return
 	var offered: Array[Item] = []
 	for p: Player in World.instance.players.get_children():
@@ -200,18 +344,22 @@ func deliver(house: House, door_position: Vector3) -> void:
 			wanted.append(describe_entry(entry) + (" (boxed)" if entry.kind == "pizza" else ""))
 		announce.rpc("They ordered:\n" + "\n".join(wanted), 3.5)
 		return
+	var all := orders.duplicate(true)
+	var index := orders.find(order)
+	if remaining.is_empty():
+		# Delivery fee, plus a tip: random, but the faster you were the bigger it can be.
+		var hurry := clampf(time_left(order) / order.time, 0.0, 1.0) if order.time > 0.0 else 1.0
+		var tip := randi_range(0, roundi(SPEED_TIP_MAX * hurry))
+		total += order.fee + tip
+		lines.append("Delivery fee $%d%s" % [order.fee, ", speed tip $%d!" % tip if tip > 0 else ""])
+		all.remove_at(index)
+		lines.append("Order complete!")
+	else:
+		all[index].items = remaining
+		lines.append("Still waiting on: " + describe_items(remaining))
+	orders = all
 	money += total
 	lines.insert(0, "Delivered! +$%d" % total)
-	if remaining.is_empty():
-		_last_house = house.address
-		order = {}
-		lines.append("Order complete. Head back to the shop.")
-	else:
-		order = {"house": order.house, "items": remaining}
-		var left := PackedStringArray()
-		for entry in remaining:
-			left.append(describe_entry(entry))
-		lines.append("Still waiting on: " + ", ".join(left))
 	announce.rpc("\n".join(lines), 6.0)
 
 
@@ -295,18 +443,23 @@ func announce(text: String, duration: float) -> void:
 	World.instance.hud.show_message(text, duration)
 
 
-func _anyone_in_shop() -> bool:
-	for p: Player in World.instance.players.get_children():
-		if World.is_in_shop(p.global_position):
-			return true
-	return false
+## Host, inside an RPC: who sent it (the host calling itself reports 0).
+func _sender() -> int:
+	var id := multiplayer.get_remote_sender_id()
+	return id if id != 0 else 1
+
+
+## Host, inside an RPC: the screens are in the shop, so the sender has to be too.
+func _sender_in_shop() -> bool:
+	var p := World.instance.player(_sender())
+	return p != null and World.is_in_shop(p.global_position)
 
 
 func _hood() -> Neighborhood:
 	return World.instance.get_node_or_null("Neighborhood") as Neighborhood
 
 
-func _house(address: String) -> House:
+func find_house(address: String) -> House:
 	for h in _hood().houses:
 		if h.address == address:
 			return h

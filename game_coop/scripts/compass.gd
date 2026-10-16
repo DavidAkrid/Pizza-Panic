@@ -1,14 +1,13 @@
 class_name Compass
 extends Control
-## Skyrim-style compass strip: cardinal directions plus one chevron for where you're headed.
+## Skyrim-style compass strip: cardinal directions plus a chevron for each place you're headed.
 ## Bearings are radians, 0 = north (-Z), increasing clockwise (east = +X).
 
 const STRIP_WIDTH := 220.0
 const SPAN := PI ## how much of the circle the strip shows, edge to edge
 
 var heading := 0.0
-var marker_bearing := NAN ## NAN = no marker
-var marker_color := Color(1, 0.85, 0.4)
+var markers: Array = [] ## [[bearing, color], ...]
 
 
 func _process(_delta: float) -> void:
@@ -31,15 +30,14 @@ func _draw() -> void:
 		else:
 			draw_line(Vector2(x, 10), Vector2(x, 15), Color(1, 1, 1, 0.4 * fade))
 
-	if is_nan(marker_bearing):
-		return
-	var rel := _relative(marker_bearing)
-	var off_strip := absf(rel) > SPAN / 2.0
-	var x := _x(clampf(rel, -SPAN / 2.0, SPAN / 2.0))
-	var color := marker_color
-	if off_strip:
-		color.a = 0.5 # pinned to the edge: "turn this way"
-	draw_polyline(PackedVector2Array([Vector2(x - 4, 18), Vector2(x, 22), Vector2(x + 4, 18)]), color, 2.0)
+	for m in markers:
+		var rel := _relative(m[0])
+		var off_strip := absf(rel) > SPAN / 2.0
+		var x := _x(clampf(rel, -SPAN / 2.0, SPAN / 2.0))
+		var color: Color = m[1]
+		if off_strip:
+			color.a = 0.5 # pinned to the edge: "turn this way"
+		draw_polyline(PackedVector2Array([Vector2(x - 4, 18), Vector2(x, 22), Vector2(x + 4, 18)]), color, 2.0)
 
 
 func _relative(bearing: float) -> float:

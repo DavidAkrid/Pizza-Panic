@@ -210,6 +210,19 @@ def kaching():
     return out
 
 
+def terminal_beep():
+    """Old computer chirp: two short square-wave beeps, the second higher."""
+    n = int(RATE * 0.32)
+    out = [0.0] * n
+    for start, f in [(0.0, 880.0), (0.16, 1320.0)]:
+        for i in range(int(RATE * 0.11)):
+            t = i / RATE
+            s = 1.0 if math.sin(2 * math.pi * f * t) >= 0 else -1.0
+            j = int(start * RATE) + i
+            out[j] += s * 0.5 * min(t / 0.002, 1.0) * min((0.11 - t) / 0.01, 1.0)
+    return lowpass(out, 4000)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for k in range(4):
@@ -224,3 +237,4 @@ if __name__ == "__main__":
     write("oven_hum.wav", oven_hum())
     write("fryer_sizzle.wav", fryer_sizzle())
     write("kaching.wav", kaching())
+    write("terminal_beep.wav", terminal_beep())

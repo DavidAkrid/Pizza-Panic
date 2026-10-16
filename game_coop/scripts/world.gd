@@ -89,28 +89,27 @@ func _process(delta: float) -> void:
 	ambience.chasing = hunted
 
 
-## Order info, team money and the compass marker, from the host-owned GameState.
+## Taken orders, team money and compass markers, from the host-owned GameState.
 func _refresh_order_hud(me: Player) -> void:
 	var game := GameState.instance
 	hud.money_label.text = "$%d" % game.money
-	var lines := PackedStringArray()
-	if game.has_order():
-		lines.append("DELIVER TO: " + game.order.house)
-		for entry in game.order.items:
-			lines.append("- " + GameState.describe_entry(entry))
-	else:
-		lines.append("No order. Head back to the shop.")
-	hud.order_label.text = "\n".join(lines)
 	var fwd := -me.global_transform.basis.z
 	hud.compass.heading = atan2(fwd.x, -fwd.z)
-	if game.has_order():
-		hud.compass.marker_bearing = Compass.bearing(me.global_position, game.order_house().marker_position())
-		hud.compass.marker_color = Color(1, 0.85, 0.4)
-	elif not me.in_shop:
-		hud.compass.marker_bearing = Compass.bearing(me.global_position, SHOP_DOOR)
-		hud.compass.marker_color = Color(1, 0.5, 0.3)
-	else:
-		hud.compass.marker_bearing = NAN
+	hud.compass.markers.clear()
+	var lines := PackedStringArray()
+	var taken := game.accepted()
+	for o in taken:
+		var left := game.time_left(o)
+		lines.append("%s  %s%s" % [o.house, GameState.format_time(left), "  READY" if o.ready else ""])
+		lines.append("  " + GameState.describe_items(o.items))
+		var house := game.find_house(o.house)
+		var hurry := left < OrderScreen.HURRY_TIME
+		hud.compass.markers.append([Compass.bearing(me.global_position, house.marker_position()), Color(1, 0.35, 0.3) if hurry else Color(1, 0.85, 0.4)])
+	if taken.is_empty():
+		lines.append("New orders on the terminal!" if not game.pending().is_empty() else "No orders yet.")
+		if not me.in_shop:
+			hud.compass.markers.append([Compass.bearing(me.global_position, SHOP_DOOR), Color(1, 0.5, 0.3)])
+	hud.order_label.text = "\n".join(lines)
 	var target = me.get_interact_target()
 	hud.prompt_label.text = target.get_prompt(me) if target else ""
 

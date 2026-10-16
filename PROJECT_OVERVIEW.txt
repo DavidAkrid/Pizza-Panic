@@ -63,8 +63,8 @@ How players connect lives in ONE file: scripts/net.gd. Today it's direct connect
 1. Autoloads start: InputSetup registers all controls; Net gets ready to connect.
 2. world.tscn loads on every machine: the shop, the neighborhood (built by code), the HUD,
    the music, and the menu (Host game / address box / Join game / Quit).
-3. HOST GAME: Net opens port 7777. The host's player spawns, GameState creates the first
-   order (one pizza to 12 Main St), 9 monsters spawn, and the screen shows the addresses
+3. HOST GAME: Net opens port 7777. The host's player spawns, GameState puts the first
+   order on the terminal (one pizza to 12 Main St, no rush), 9 monsters spawn, and the screen shows the addresses
    friends can type (home network, plus Tailscale if it's running).
 4. JOIN GAME: Net connects to the typed address. When the host sees the new connection it
    spawns that player, and the joiner receives everything that already exists.
@@ -75,10 +75,14 @@ How players connect lives in ONE file: scripts/net.gd. Today it's direct connect
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 4. THE GAME LOOP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-A. ORDER (game_state.gd)
-   One shared order at a time: 1-2 items from pizza (1-2 toppings), mozzarella sticks, soda.
-   Shown on the kitchen board, everyone's HUD and compass, and as a lit porch + gold chevron.
-   A new order arrives whenever someone is in the shop and there's no current order.
+A. ORDERS (game_state.gd, order_screen.gd)
+   Calls come in on the ORDER TERMINAL (green CRT, front of the shop) with a beep every
+   25-40s (faster with more players), up to 3 waiting. Each: address, distance, pay, a 60s
+   countdown, items (1-2 of pizza / sticks / soda), sometimes a customer note.
+   Aim at one + E = the team takes it. Taken orders (max 4) go on the KITCHEN SCREEN with a
+   delivery countdown (100s + 1.5s per meter); E there ticks one READY. They also show on
+   everyone's HUD and compass, and as a lit porch + gold chevron.
+   Ignored calls hang up quietly. A taken order that runs out is cancelled (rep penalty later).
 
 B. COOK (station.gd, cook_station.gd)
    Dough -> topping bins -> oven (dings at PERFECT, 8-11s) -> boxes.
@@ -109,6 +113,8 @@ G. DELIVERY (house_door.gd, game_state.gd)
    (looking at you on your screen). They take matching items from EVERYONE within 4.5m of
    the door, so you can split an order between players. Pay goes to the team.
    Pizza: $20 x toppings x bake x condition (+$10 tip if perfect). Sticks: $8 x fry. Soda: $3.
+   Finishing an order adds its delivery fee (farther = more) and a random speed tip (faster =
+   bigger odds).
 
 H. UPGRADES (upgrade_station.gd)
    Right wall of the shop. Personal upgrades, paid from team money; plaques show YOUR prices.
@@ -120,7 +126,8 @@ H. UPGRADES (upgrade_station.gd)
 net.gd             The ONLY connection code (host/join/leave). Swap for Steam here.
 world.gd           The world scene: menu, pause menu, spawning players/items/monsters,
                    your inside/outside mood, HUD updates, cold-pizza rule (host).
-game_state.gd      Host-owned rules: order, team money, deliveries, upgrades. Synced.
+game_state.gd      Host-owned rules: orders, clock, team money, deliveries, upgrades. Synced.
+order_screen.gd    The order terminal and the kitchen screen (one script, two modes).
 player.gd          Your body: movement, stamina, camera, flashlight, inventory, shoves,
                    footsteps you hear from friends, upgrade effects.
 combat.gd          Charged punch/swing/throw and who gets hit.
@@ -149,6 +156,8 @@ Pizza damage (swing, thrown) .... item.gd: PIZZA_SWING_DAMAGE, PIZZA_THROW_DAMAG
 Cold pizza ...................... world.gd: COLD_DAMAGE, COLD_INTERVAL
 Monsters ........................ shambler.gd: CHASE_SPEED, SMELL_RANGE, BITE_DAMAGE, ...
 Pay, tips, order mix ............ game_state.gd: PAY, PERFECT_TIP, ITEM_WEIGHTS, MAX_ORDER_ITEMS
+Order pace, timers, fees, notes .. game_state.gd: ORDER_GAP, PENDING_TIME, DELIVERY_TIME*, FEE_PER_M,
+                                  SPEED_TIP_MAX, NOTES, MAX_PENDING/MAX_ACCEPTED
 Who hands over at the door ...... game_state.gd: DELIVERY_RANGE
 Upgrade names/prices ............ game_state.gd: UPGRADES (effects: player.gd apply_upgrades)
 Oven / fryer timing ............. cook_station.gd: TIMES
